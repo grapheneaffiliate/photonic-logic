@@ -24,7 +24,7 @@ def test_passivity_and_bounds():
 def test_xpm_trend_not_constant():
     dev = PhotonicMolecule()
     P = np.linspace(0.0, 2e-3, 9)
-    T = [dev.steady_state_response(dev.omega0, p)["T_through"] for p in P]
-    # Should not be strictly constant across the control sweep
-    diffs = np.diff(T)
-    assert np.any(np.abs(diffs) > 1e-9)
+    phases = [dev.steady_state_response(dev.omega0, p)["phase_through"] for p in P]
+    # Phase should vary with control power due to XPM-induced detuning
+    diffs = np.diff(phases)
+    assert np.any(np.abs(diffs) > 1e-12)

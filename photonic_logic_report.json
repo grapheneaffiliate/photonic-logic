@@ -1,0 +1,64 @@
+{
+  "timestamp": "2025-08-25 03:53:50",
+  "device_parameters": {
+    "Q_factor": 496153.8461538461,
+    "J_Hz": 1500000000.0,
+    "kappa_Hz": 390000000.0,
+    "g_XPM_Hz_per_W": 2500000000000.0,
+    "wavelength_nm": 1549.3150284237724
+  },
+  "performance_metrics": {
+    "cascade": {
+      "AND": {
+        "outputs": [
+          0.0,
+          0.0,
+          1.0,
+          1.0
+        ],
+        "logic_out": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "min_contrast_dB": 120.0
+      },
+      "OR": {
+        "outputs": [
+          0.0,
+          0.0,
+          1.0,
+          1.0
+        ],
+        "logic_out": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "min_contrast_dB": 120.0
+      },
+      "XOR": {
+        "outputs": [
+          0.0,
+          0.0,
+          1.0,
+          1.0
+        ],
+        "logic_out": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "min_contrast_dB": 120.0
+      }
+    }
+  },
+  "design_criteria_met": {
+    "splitting_resolved": false,
+    "XPM_sufficient": false,
+    "contrast_adequate": false
+  }
+}

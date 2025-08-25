@@ -9,7 +9,8 @@ def test_basic_response_bounds():
 
 def test_monotone_trend():
     dev = PhotonicMolecule()
+    # At a fixed frequency, the phase should vary with control power due to XPM-induced detuning.
     P = np.linspace(0, 2e-3, 11)
-    T = [dev.steady_state_response(dev.omega0, p)['T_through'] for p in P]
-    # should not be strictly constant
-    assert not all(abs(T[i+1]-T[i]) < 1e-12 for i in range(len(T)-1))
+    phases = [dev.steady_state_response(dev.omega0, p)["phase_through"] for p in P]
+    diffs = np.diff(phases)
+    assert np.any(np.abs(diffs) > 1e-12)

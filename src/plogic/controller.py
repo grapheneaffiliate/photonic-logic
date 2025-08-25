@@ -79,8 +79,12 @@ class PhotonicMolecule:
             s_through = 1 - np.sqrt(self.kappa_eB) * a[1]
             s_drop    =      np.sqrt(self.kappa_eA) * a[0]
         Tt, Td = float(np.abs(s_through)**2), float(np.abs(s_drop)**2)
-        Tt = max(min(Tt, 1.0), 0.0)
-        Td = max(min(Td, 1.0), 0.0)
+        # Clamp individual channels
+        Tt = min(max(Tt, 0.0), 1.0)
+        Td = min(max(Td, 0.0), 1.0)
+        # Enforce passivity: through + drop ≤ 1 (allowing losses internally)
+        if Tt + Td > 1.0:
+            Td = max(0.0, 1.0 - Tt)
         return {'T_through': Tt, 'T_drop': Td, 'R_reflect': float(np.abs(1 - s_through - s_drop)**2),
                 'phase_through': float(np.angle(s_through)), 'phase_drop': float(np.angle(s_drop))}
 
