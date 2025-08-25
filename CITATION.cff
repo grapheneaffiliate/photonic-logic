@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+title: "Programmable Photonic Logic"
+message: "If you use this software, please cite it."
+type: software
+authors:
+  - name: "Open Photonics Lab"
+version: "2.2.0"
+date-released: "2025-08-25"
+repository-code: "https://github.com/grapheneaffiliate/photonic-logic"
+license: "MIT"
+keywords:
+  - photonics
+  - coupled resonators
+  - photonic logic
+  - simulation
+  - characterization
