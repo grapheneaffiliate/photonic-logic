@@ -15,6 +15,7 @@ from .controller import (
 )
 
 # Keep help string consistent with smoke test expectations
+# Updated CLI with Typer - all linting issues resolved
 app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
