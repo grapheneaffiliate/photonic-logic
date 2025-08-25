@@ -3,16 +3,35 @@
 
 Turn-key framework for designing, characterizing, and operating *programmable light-light logic* using coupled resonators (photonic molecules).
 
-## Quickstart
+## Quick Start
+
+```bash
+# Install (when published)
+pipx install plogic
+
+# Or install from source
+pip install -e .
+
+# Generate truth table
+plogic truth-table --ctrl 0 0.001 --out reports/table.csv
+
+# Run characterization
+plogic characterize --out reports/analysis.json
+
+# Simulate cascade
+plogic cascade --stages 2
+```
+
+## Development
 
 ```bash
 # Create and activate a virtual env (recommended)
 python -m venv .venv && source .venv/bin/activate
 
-# Install from source
-pip install -e .
+# Install with dev dependencies
+pip install -e .[dev]
 
-# Run a default characterization and generate report + plots
+# Run full characterization and generate report + plots
 plogic characterize
 
 # Generate a truth table CSV for a few control powers
