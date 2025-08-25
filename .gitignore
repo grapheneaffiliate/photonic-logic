@@ -13,3 +13,13 @@ build/
 *.db
 *.DS_Store
 *.png
+
+# Outputs
+*.csv
+*.json
+!docs/**/*.json
+data/reports/**
+
+# Generated artifacts
+coverage.xml
+.coverage

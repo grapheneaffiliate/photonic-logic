@@ -1,56 +1,109 @@
-import argparse, json
-import numpy as np
-from .controller import PhotonicMolecule, ExperimentController, generate_design_report, TWOPI
+from __future__ import annotations
 
-def cmd_characterize(args):
+import importlib.metadata
+import json
+from pathlib import Path
+from typing import List
+
+import pandas as pd
+import typer
+
+from .controller import (
+    ExperimentController,
+    PhotonicMolecule,
+    generate_design_report,
+)
+
+# Keep help string consistent with smoke test expectations
+app = typer.Typer(
+    add_completion=False,
+    no_args_is_help=True,
+    help="Programmable Photonic Logic CLI",
+)
+
+
+@app.callback(invoke_without_command=True)
+def main_callback(
+    ctx: typer.Context,
+    version: bool = typer.Option(False, "--version", help="Show version and exit"),
+) -> None:
+    """Programmable Photonic Logic CLI."""
+    if version:
+        try:
+            v = importlib.metadata.version("photonic-logic")
+            typer.echo(v)
+        except importlib.metadata.PackageNotFoundError:
+            typer.echo("2.2.0")  # fallback for development
+        raise typer.Exit()
+
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
+
+
+@app.command("characterize")
+def characterize(
+    stages: int = typer.Option(2, "--stages", help="Cascade stages for the demo"),
+    report: Path = typer.Option(
+        Path("photonic_logic_report.json"),
+        "--report",
+        help="Output JSON report path",
+    ),
+) -> None:
+    """
+    Run default characterization and save report JSON.
+    """
     dev = PhotonicMolecule()
     ctl = ExperimentController(dev)
-    results = ctl.run_full_characterization()
-    ctl.results['cascade'] = ctl.test_cascade(n_stages=args.stages)
-    rep = generate_design_report(dev, ctl.results, filename=args.report)
-    print(json.dumps(rep, indent=2))
-    print(f"Saved report to {args.report}")
+    ctl.run_full_characterization()
+    ctl.results["cascade"] = ctl.test_cascade(n_stages=stages)
+    rep = generate_design_report(dev, ctl.results, filename=str(report))
+    typer.echo(json.dumps(rep, indent=2))
+    typer.echo(f"Saved report to {report}")
 
-def cmd_truth_table(args):
+
+@app.command("truth-table")
+def truth_table(
+    ctrl: List[float] = typer.Option(
+        [],
+        "--ctrl",
+        help="Control powers in W (repeat: --ctrl 0 --ctrl 0.001)",
+    ),
+    out: Path = typer.Option(Path("truth_table.csv"), "--out", help="Output CSV"),
+) -> None:
+    """
+    Compute a truth table for control powers and write CSV.
+    Column names: P_ctrl_W, T_through, T_drop, etc.
+    """
+    powers = [float(p) for p in (ctrl if ctrl else [0.0, 0.001, 0.002])]
     dev = PhotonicMolecule()
-    ctl = ExperimentController(dev)
     omega = dev.omega0
-    powers = [float(p) for p in args.ctrl]
-    import pandas as pd
+
     rows = []
     for P in powers:
         resp = dev.steady_state_response(omega, P)
-        rows.append({'P_ctrl_W': P, **resp})
+        rows.append({"P_ctrl_W": P, **resp})
     df = pd.DataFrame(rows)
-    df.to_csv(args.out, index=False)
-    print(f"Wrote {args.out}")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(out, index=False)
+    typer.echo(f"Wrote {out}")
 
-def cmd_cascade(args):
+
+@app.command("cascade")
+def cascade(
+    stages: int = typer.Option(2, "--stages", help="Number of cascaded stages"),
+) -> None:
+    """
+    Simulate simple cascade outputs and print JSON.
+    """
     dev = PhotonicMolecule()
     ctl = ExperimentController(dev)
-    res = ctl.test_cascade(n_stages=args.stages)
-    print(json.dumps(res, indent=2))
+    res = ctl.test_cascade(n_stages=stages)
+    typer.echo(json.dumps(res, indent=2))
 
-def main():
-    p = argparse.ArgumentParser(prog="plogic", description="Programmable Photonic Logic CLI")
-    sub = p.add_subparsers(dest="cmd", required=True)
 
-    p_char = sub.add_parser("characterize", help="Run default characterization and save report JSON")
-    p_char.add_argument("--stages", type=int, default=2, help="Cascade stages for the demo")
-    p_char.add_argument("--report", type=str, default="photonic_logic_report.json")
-    p_char.set_defaults(func=cmd_characterize)
+def main() -> None:
+    app()
 
-    p_tt = sub.add_parser("truth-table", help="Compute truth table for control powers")
-    p_tt.add_argument("--ctrl", nargs="+", default=["0", "0.001", "0.002"], help="Control powers in W")
-    p_tt.add_argument("--out", type=str, default="truth_table.csv")
-    p_tt.set_defaults(func=cmd_truth_table)
-
-    p_cas = sub.add_parser("cascade", help="Simulate simple cascade outputs")
-    p_cas.add_argument("--stages", type=int, default=2)
-    p_cas.set_defaults(func=cmd_cascade)
-
-    args = p.parse_args()
-    args.func(args)
 
 if __name__ == "__main__":
     main()

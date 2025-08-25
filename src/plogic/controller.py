@@ -1,18 +1,22 @@
+import json
+import logging
+import time
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
 from scipy.optimize import curve_fit
 from scipy.signal import find_peaks
-from dataclasses import dataclass
-from typing import Dict, List, Tuple, Optional
-import json, time, logging
 
 HBAR = 1.054_571_817e-34
 C = 299_792_458.0
-TWOPI = 2*np.pi
+TWOPI = 2 * np.pi
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class PhotonicMolecule:
@@ -31,97 +35,145 @@ class PhotonicMolecule:
     delta_B0: float = 0.0
 
     def eigenfrequencies(self) -> Tuple[complex, complex]:
-        kappa_avg = (self.kappa_A + self.kappa_B)/2
-        kappa_diff = (self.kappa_A - self.kappa_B)/2
-        omega_plus  = -1j * kappa_avg/2 + np.sqrt(self.J**2 - (kappa_diff/2)**2 + 0j)
-        omega_minus = -1j * kappa_avg/2 - np.sqrt(self.J**2 - (kappa_diff/2)**2 + 0j)
+        kappa_avg = (self.kappa_A + self.kappa_B) / 2
+        kappa_diff = (self.kappa_A - self.kappa_B) / 2
+        omega_plus = -1j * kappa_avg / 2 + np.sqrt(self.J**2 - (kappa_diff / 2) ** 2 + 0j)
+        omega_minus = -1j * kappa_avg / 2 - np.sqrt(self.J**2 - (kappa_diff / 2) ** 2 + 0j)
         return omega_plus, omega_minus
 
-    def transfer_matrix(self, omega: float, P_ctrl: float = 0.0,
-                        delta_bias_A: float = 0.0, delta_bias_B: float = 0.0) -> np.ndarray:
+    def transfer_matrix(
+        self,
+        omega: float,
+        P_ctrl: float = 0.0,
+        delta_bias_A: float = 0.0,
+        delta_bias_B: float = 0.0,
+    ) -> np.ndarray:
         delta_A = omega - self.omega0 + self.delta_A0 + delta_bias_A
         delta_A += self.g_XPM * P_ctrl
         delta_B = omega - self.omega0 + self.delta_B0 + delta_bias_B
         j = 1j
-        M = np.array([[j*delta_A - self.kappa_A/2, -1j*self.J],
-                      [-1j*self.J, j*delta_B - self.kappa_B/2]], dtype=complex)
+        M = np.array(
+            [
+                [j * delta_A - self.kappa_A / 2, -1j * self.J],
+                [-1j * self.J, j * delta_B - self.kappa_B / 2],
+            ],
+            dtype=complex,
+        )
         return M
 
     # EIT-induced frequency pull on cavity B
     def delta_omega_eit(self, Delta_p, g0, N, Omega_c, Delta_c, gamma_eg, gamma_rg, U_block):
         num = g0**2 * N
-        denom_inner = (Delta_p + Delta_c) + 1j*gamma_rg + 1j*U_block/HBAR
-        denom = (Delta_p + 1j*gamma_eg) - (abs(Omega_c)**2)/denom_inner
-        return -num/denom  # complex pull
+        denom_inner = (Delta_p + Delta_c) + 1j * gamma_rg + 1j * U_block / HBAR
+        denom = (Delta_p + 1j * gamma_eg) - (abs(Omega_c) ** 2) / denom_inner
+        return -num / denom  # complex pull
 
-    def steady_state_response(self, omega: float, P_ctrl: float = 0.0, input_port: str = "A",
-                              eit_params: Optional[Dict] = None, clamp_imag_pull: bool = True) -> Dict[str, float]:
+    def steady_state_response(
+        self,
+        omega: float,
+        P_ctrl: float = 0.0,
+        input_port: str = "A",
+        eit_params: Optional[Dict] = None,
+        clamp_imag_pull: bool = True,
+    ) -> Dict[str, float]:
         M = self.transfer_matrix(omega, P_ctrl)
         if eit_params is not None:
             Delta_p = omega - self.omega0
             d_omega = self.delta_omega_eit(Delta_p, **eit_params)
             d_re, d_im = float(np.real(d_omega)), float(np.imag(d_omega))
             if clamp_imag_pull:
-                M[1,1] += 1j * d_re
+                M[1, 1] += 1j * d_re
             else:
-                M[1,1] += 1j * d_re - d_im/2
+                M[1, 1] += 1j * d_re - d_im / 2
 
-        b = np.array([np.sqrt(self.kappa_eA), 0], dtype=complex) if input_port == "A" else             np.array([0, np.sqrt(self.kappa_eB)], dtype=complex)
+        b = (
+            np.array([np.sqrt(self.kappa_eA), 0], dtype=complex)
+            if input_port == "A"
+            else np.array([0, np.sqrt(self.kappa_eB)], dtype=complex)
+        )
         try:
             a = np.linalg.solve(M, b)
         except np.linalg.LinAlgError:
-            return {'T_through': 0.0, 'T_drop': 0.0, 'R_reflect': 1.0, 'phase_through': 0.0, 'phase_drop': 0.0}
+            return {
+                "T_through": 0.0,
+                "T_drop": 0.0,
+                "R_reflect": 1.0,
+                "phase_through": 0.0,
+                "phase_drop": 0.0,
+            }
 
         if input_port == "A":
             s_through = 1 - np.sqrt(self.kappa_eA) * a[0]
-            s_drop    =      np.sqrt(self.kappa_eB) * a[1]
+            s_drop = np.sqrt(self.kappa_eB) * a[1]
         else:
             s_through = 1 - np.sqrt(self.kappa_eB) * a[1]
-            s_drop    =      np.sqrt(self.kappa_eA) * a[0]
-        Tt, Td = float(np.abs(s_through)**2), float(np.abs(s_drop)**2)
+            s_drop = np.sqrt(self.kappa_eA) * a[0]
+        Tt, Td = float(np.abs(s_through) ** 2), float(np.abs(s_drop) ** 2)
         Tt = max(min(Tt, 1.0), 0.0)
         Td = max(min(Td, 1.0), 0.0)
-        return {'T_through': Tt, 'T_drop': Td, 'R_reflect': float(np.abs(1 - s_through - s_drop)**2),
-                'phase_through': float(np.angle(s_through)), 'phase_drop': float(np.angle(s_drop))}
+        return {
+            "T_through": Tt,
+            "T_drop": Td,
+            "R_reflect": float(np.abs(1 - s_through - s_drop) ** 2),
+            "phase_through": float(np.angle(s_through)),
+            "phase_drop": float(np.angle(s_drop)),
+        }
+
 
 class DeviceCalibrator:
     def __init__(self, device: PhotonicMolecule):
         self.device = device
         self.calibration_data = {}
 
-    def find_resonances(self, omega_span: np.ndarray, P_ctrl: float = 0.0) -> Dict[str, List[float]]:
-        transmission = [self.device.steady_state_response(om, P_ctrl)['T_through'] for om in omega_span]
+    def find_resonances(
+        self, omega_span: np.ndarray, P_ctrl: float = 0.0
+    ) -> Dict[str, List[float]]:
+        transmission = [
+            self.device.steady_state_response(om, P_ctrl)["T_through"] for om in omega_span
+        ]
         transmission = np.array(transmission)
         peaks, _ = find_peaks(-transmission, prominence=0.1)
         if len(peaks) >= 2:
             omega_plus = omega_span[peaks[0]]
             omega_minus = omega_span[peaks[1]]
             splitting = abs(omega_plus - omega_minus)
-            def lorentzian(w, w0, gamma, A, offset): return offset - A / (1 + ((w - w0) / (gamma/2))**2)
+
+            def lorentzian(w, w0, gamma, A, offset):
+                return offset - A / (1 + ((w - w0) / (gamma / 2)) ** 2)
+
             Q_factors = []
             for peak in peaks[:2]:
-                fit_range = slice(max(0, peak-20), min(len(omega_span), peak+20))
-                popt, _ = curve_fit(lorentzian, omega_span[fit_range], transmission[fit_range],
-                                    p0=[omega_span[peak], self.device.kappa_A, 0.5, 0.9])
+                fit_range = slice(max(0, peak - 20), min(len(omega_span), peak + 20))
+                popt, _ = curve_fit(
+                    lorentzian,
+                    omega_span[fit_range],
+                    transmission[fit_range],
+                    p0=[omega_span[peak], self.device.kappa_A, 0.5, 0.9],
+                )
                 w0, gamma = popt[0], popt[1]
                 Q_factors.append(w0 / gamma)
-            self.calibration_data['resonances'] = {
-                'omega_plus': omega_plus, 'omega_minus': omega_minus,
-                'splitting_Hz': splitting / TWOPI, 'J_extracted_Hz': splitting / TWOPI / 2,
-                'Q_factors': Q_factors
+            self.calibration_data["resonances"] = {
+                "omega_plus": omega_plus,
+                "omega_minus": omega_minus,
+                "splitting_Hz": splitting / TWOPI,
+                "J_extracted_Hz": splitting / TWOPI / 2,
+                "Q_factors": Q_factors,
             }
             logger.info(f"Found splitting: {splitting/TWOPI/1e9:.2f} GHz")
-        return self.calibration_data.get('resonances', {})
+        return self.calibration_data.get("resonances", {})
 
     def calibrate_XPM(self, omega_signal: float, P_ctrl_sweep: np.ndarray) -> float:
         shifts = []
         for P_ctrl in P_ctrl_sweep:
             response = self.device.steady_state_response(omega_signal, P_ctrl)
-            shifts.append(response['T_through'])
-        def linear_shift(P, g_XPM, offset): return offset + g_XPM * P
+            shifts.append(response["T_through"])
+
+        def linear_shift(P, g_XPM, offset):
+            return offset + g_XPM * P
+
         popt, _ = curve_fit(linear_shift, P_ctrl_sweep, shifts)
         g_XPM_fitted = popt[0]
-        self.calibration_data['g_XPM'] = g_XPM_fitted
+        self.calibration_data["g_XPM"] = g_XPM_fitted
         logger.info(f"Calibrated g_XPM: {g_XPM_fitted/TWOPI/1e9*1e-3:.2f} GHz/mW")
         return g_XPM_fitted
 
@@ -129,14 +181,21 @@ class DeviceCalibrator:
         rows = []
         for P_ctrl in ctrl_powers:
             resp = self.device.steady_state_response(omega_signal, P_ctrl)
-            rows.append({'P_ctrl_mW': P_ctrl*1e3, 'T_through': resp['T_through'], 'T_drop': resp['T_drop'],
-                         'phase_deg': np.degrees(resp['phase_through'])})
+            rows.append(
+                {
+                    "P_ctrl_mW": P_ctrl * 1e3,
+                    "T_through": resp["T_through"],
+                    "T_drop": resp["T_drop"],
+                    "phase_deg": np.degrees(resp["phase_through"]),
+                }
+            )
         df = pd.DataFrame(rows)
-        thr = 0.5*(df.T_through.max()+df.T_through.min())
-        df['logic_out'] = (df.T_through > thr).astype(int)
-        df.attrs['threshold'] = thr
-        df.attrs['contrast_dB'] = 10*np.log10(df.T_through.max()/df.T_through.min())
+        thr = 0.5 * (df.T_through.max() + df.T_through.min())
+        df["logic_out"] = (df.T_through > thr).astype(int)
+        df.attrs["threshold"] = thr
+        df.attrs["contrast_dB"] = 10 * np.log10(df.T_through.max() / df.T_through.min())
         return df
+
 
 class ExperimentController:
     def __init__(self, device: PhotonicMolecule):
@@ -145,27 +204,36 @@ class ExperimentController:
         self.results = {}
 
     def run_full_characterization(self) -> Dict:
-        omega_span = np.linspace(self.device.omega0 - 10*self.device.J, self.device.omega0 + 10*self.device.J, 1000)
+        omega_span = np.linspace(
+            self.device.omega0 - 10 * self.device.J, self.device.omega0 + 10 * self.device.J, 1000
+        )
         resonances = self.calibrator.find_resonances(omega_span)
         if resonances:
-            omega_signal = resonances['omega_minus']
+            omega_signal = resonances["omega_minus"]
             sweep = np.linspace(0, 2e-3, 20)
             g_XPM = self.calibrator.calibrate_XPM(omega_signal, sweep)
             truth = self.calibrator.generate_truth_table(omega_signal, [0, 0.5e-3, 1e-3, 2e-3])
             E90 = self.find_switching_energy(omega_signal, target_contrast=0.9)
-            self.results = {'resonances': resonances, 'g_XPM_Hz_per_W': g_XPM/TWOPI,
-                            'truth_table': truth.to_dict(), 'E90_pJ': E90*1e12,
-                            'contrast_dB': truth.attrs['contrast_dB']}
+            self.results = {
+                "resonances": resonances,
+                "g_XPM_Hz_per_W": g_XPM / TWOPI,
+                "truth_table": truth.to_dict(),
+                "E90_pJ": E90 * 1e12,
+                "contrast_dB": truth.attrs["contrast_dB"],
+            }
         return self.results
 
-    def find_switching_energy(self, omega_signal: float, target_contrast: float = 0.9, pulse_duration: float = 10e-9) -> float:
+    def find_switching_energy(
+        self, omega_signal: float, target_contrast: float = 0.9, pulse_duration: float = 10e-9
+    ) -> float:
         def contrast_vs_power(P_ctrl):
-            on  = self.device.steady_state_response(omega_signal, P_ctrl)
+            on = self.device.steady_state_response(omega_signal, P_ctrl)
             off = self.device.steady_state_response(omega_signal, 0)
-            return abs(on['T_through'] - off['T_through'])/max(off['T_through'], 1e-12)
+            return abs(on["T_through"] - off["T_through"]) / max(off["T_through"], 1e-12)
+
         P_low, P_high = 0.0, 10e-3
         for _ in range(60):
-            P_mid = 0.5*(P_low + P_high)
+            P_mid = 0.5 * (P_low + P_high)
             if contrast_vs_power(P_mid) < target_contrast:
                 P_low = P_mid
             else:
@@ -174,46 +242,64 @@ class ExperimentController:
 
     def test_cascade(self, n_stages: int = 2) -> Dict:
         results = {}
-        for logic in ['AND', 'OR', 'XOR']:
-            inputs = [(0,0), (0,1), (1,0), (1,1)]
+        for logic in ["AND", "OR", "XOR"]:
+            inputs = [(0, 0), (0, 1), (1, 0), (1, 1)]
             outputs = []
             for s, c in inputs:
                 P_ctrl = c * 1e-3
                 signal = s
                 for stage in range(n_stages):
-                    resp = self.device.steady_state_response(self.device.omega0, P_ctrl if stage==0 else 0)
-                    signal *= resp['T_through']
+                    resp = self.device.steady_state_response(
+                        self.device.omega0, P_ctrl if stage == 0 else 0
+                    )
+                    signal *= resp["T_through"]
                 outputs.append(signal)
             thr = 0.5
             logic_out = [1 if o > thr else 0 for o in outputs]
-            results[logic] = {'outputs': outputs, 'logic_out': logic_out,
-                              'min_contrast_dB': 10*np.log10(max(outputs)/max(min(outputs), 1e-12))}
+            results[logic] = {
+                "outputs": outputs,
+                "logic_out": logic_out,
+                "min_contrast_dB": 10 * np.log10(max(outputs) / max(min(outputs), 1e-12)),
+            }
         return results
 
-def generate_design_report(device: PhotonicMolecule, results: Dict, filename: str = "photonic_logic_report.json"):
-    report = {'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
-              'device_parameters': {'Q_factor': float(device.omega0/device.kappa_A),
-                                    'J_Hz': float(device.J/TWOPI), 'kappa_Hz': float(device.kappa_A/TWOPI),
-                                    'g_XPM_Hz_per_W': float(device.g_XPM/TWOPI),
-                                    'wavelength_nm': C/(device.omega0/TWOPI)*1e9},
-              'performance_metrics': results,
-              'design_criteria_met': {'splitting_resolved': results.get('resonances', {}).get('splitting_Hz', 0) > device.kappa_A/TWOPI,
-                                      'XPM_sufficient': results.get('E90_pJ', float('inf')) < 5000,
-                                      'contrast_adequate': results.get('contrast_dB', 0) > 15}}
-    with open(filename, "w") as f: json.dump(report, f, indent=2)
+
+def generate_design_report(
+    device: PhotonicMolecule, results: Dict, filename: str = "photonic_logic_report.json"
+):
+    report = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "device_parameters": {
+            "Q_factor": float(device.omega0 / device.kappa_A),
+            "J_Hz": float(device.J / TWOPI),
+            "kappa_Hz": float(device.kappa_A / TWOPI),
+            "g_XPM_Hz_per_W": float(device.g_XPM / TWOPI),
+            "wavelength_nm": C / (device.omega0 / TWOPI) * 1e9,
+        },
+        "performance_metrics": results,
+        "design_criteria_met": {
+            "splitting_resolved": results.get("resonances", {}).get("splitting_Hz", 0)
+            > device.kappa_A / TWOPI,
+            "XPM_sufficient": results.get("E90_pJ", float("inf")) < 5000,
+            "contrast_adequate": results.get("contrast_dB", 0) > 15,
+        },
+    }
+    with open(filename, "w") as f:
+        json.dump(report, f, indent=2)
     logger.info(f"Report saved to {filename}")
     return report
 
+
 # Optional: time-domain simulate helper
-from scipy.integrate import solve_ivp
 def simulate_pulse(device: PhotonicMolecule, omega: float, P_ctrl_t, t_span=(0, 10e-9), y0=None):
     def rhs(t, y):
         P_ctrl = P_ctrl_t(t)
         M = device.transfer_matrix(omega, P_ctrl)
-        vec = (M @ (y[0::2] + 1j*y[1::2]) + np.array([np.sqrt(device.kappa_eA), 0], complex))
+        vec = M @ (y[0::2] + 1j * y[1::2]) + np.array([np.sqrt(device.kappa_eA), 0], complex)
         return np.array([vec[0].real, vec[0].imag, vec[1].real, vec[1].imag])
+
     y0 = np.zeros(4) if y0 is None else y0
     sol = solve_ivp(rhs, t_span, y0, max_step=1e-11)
-    aA = sol.y[0] + 1j*sol.y[1]
-    s_through = 1 - np.sqrt(device.kappa_eA)*aA
-    return sol.t, np.abs(s_through)**2
+    aA = sol.y[0] + 1j * sol.y[1]
+    s_through = 1 - np.sqrt(device.kappa_eA) * aA
+    return sol.t, np.abs(s_through) ** 2
