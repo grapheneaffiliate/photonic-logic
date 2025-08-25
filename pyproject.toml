@@ -18,7 +18,12 @@ dependencies = [
 ]
 
 [project.scripts]
-plogic = "plogic.cli:main"
+plogic = "plogic.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/grapheneaffiliate/photonic-logic"
+Issues = "https://github.com/grapheneaffiliate/photonic-logic/issues"
+Documentation = "https://github.com/grapheneaffiliate/photonic-logic#readme"
 
 [project.optional-dependencies]
 dev = [
@@ -54,3 +59,6 @@ testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+plogic = ["py.typed"]
