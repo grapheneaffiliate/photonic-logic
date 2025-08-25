@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import importlib.metadata
 from pathlib import Path
 from typing import List, Optional
 
@@ -19,6 +20,24 @@ app = typer.Typer(
     no_args_is_help=True,
     help="Programmable Photonic Logic CLI",
 )
+
+
+@app.callback(invoke_without_command=True)
+def main_callback(
+    ctx: typer.Context,
+    version: bool = typer.Option(False, "--version", help="Show version and exit"),
+) -> None:
+    """Programmable Photonic Logic CLI."""
+    if version:
+        try:
+            v = importlib.metadata.version("photonic-logic")
+            typer.echo(v)
+        except importlib.metadata.PackageNotFoundError:
+            typer.echo("2.2.0")  # fallback for development
+        raise typer.Exit()
+    
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
 
 
 @app.command("characterize")

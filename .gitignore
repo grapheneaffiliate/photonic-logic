@@ -19,3 +19,6 @@ build/
 *.json
 !docs/**/*.json
 data/reports/**
+
+# Generated artifacts
+coverage.xml
