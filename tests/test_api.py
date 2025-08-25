@@ -1,7 +1,8 @@
 from dataclasses import asdict
+
 import numpy as np
 
-from plogic.controller import PhotonicMolecule, TWOPI
+from plogic.controller import PhotonicMolecule
 
 
 def test_dataclass_roundtrip():
@@ -21,4 +22,4 @@ def test_eigenfrequencies_types_and_ordering():
     reals = np.sort([w_plus.real, w_minus.real])
     # Expect approximately [-J, +J]
     assert np.isclose(reals[0], -dev.J, rtol=0.15, atol=0.0)
-    assert np.isclose(reals[1],  dev.J, rtol=0.15, atol=0.0)
+    assert np.isclose(reals[1], dev.J, rtol=0.15, atol=0.0)

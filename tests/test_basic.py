@@ -1,11 +1,14 @@
 import numpy as np
-from plogic.controller import PhotonicMolecule, TWOPI
+
+from plogic.controller import PhotonicMolecule
+
 
 def test_basic_response_bounds():
     dev = PhotonicMolecule()
     r = dev.steady_state_response(dev.omega0, 0.0)
-    assert 0.0 <= r['T_through'] <= 1.0
-    assert 0.0 <= r['T_drop'] <= 1.0
+    assert 0.0 <= r["T_through"] <= 1.0
+    assert 0.0 <= r["T_drop"] <= 1.0
+
 
 def test_monotone_trend():
     dev = PhotonicMolecule()

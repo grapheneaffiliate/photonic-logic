@@ -18,7 +18,7 @@ def _plogic_cmd():
 
 def test_truth_table_respects_out_and_writes_csv(tmp_path: Path):
     out = tmp_path / "truth.csv"
-    cmd = _plogic_cmd() + ["truth-table", "--ctrl", "0", "0.001", "--out", str(out)]
+    cmd = _plogic_cmd() + ["truth-table", "--ctrl", "0", "--ctrl", "0.001", "--out", str(out)]
     proc = _run(cmd)
     assert proc.returncode == 0, f"stderr: {proc.stderr}"
     assert out.exists(), "CSV was not created"

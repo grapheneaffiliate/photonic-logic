@@ -1,8 +1,6 @@
-import math
 import numpy as np
-import pytest
 
-from plogic.controller import PhotonicMolecule, TWOPI
+from plogic.controller import PhotonicMolecule
 
 
 def test_passivity_and_bounds():

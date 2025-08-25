@@ -22,7 +22,7 @@ def test_truth_table_generates_csv(tmp_path: Path):
     # Minimal, fast run with two control powers
     out = tmp_path / "truth.csv"
     exe = shutil.which("plogic")
-    args = ["truth-table", "--ctrl", "0", "0.001", "--out", str(out)]
+    args = ["truth-table", "--ctrl", "0", "--ctrl", "0.001", "--out", str(out)]
     if exe:
         proc = _run([exe, *args])
     else:

@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-import json
 import importlib.metadata
+import json
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 import pandas as pd
 import typer
 
 from .controller import (
-    PhotonicMolecule,
     ExperimentController,
+    PhotonicMolecule,
     generate_design_report,
 )
 
@@ -35,7 +35,7 @@ def main_callback(
         except importlib.metadata.PackageNotFoundError:
             typer.echo("2.2.0")  # fallback for development
         raise typer.Exit()
-    
+
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help())
 
@@ -102,24 +102,6 @@ def cascade(
 
 
 def main() -> None:
-    # Keep console_script target compatible with pyproject: plogic = "plogic.cli:main"
-    # Back-compat: rewrite '--ctrl 0 0.001' into '--ctrl 0 --ctrl 0.001' for Typer parsing.
-    import sys
-    argv = sys.argv[1:]
-    if "--ctrl" in argv:
-        new_argv: list[str] = []
-        i = 0
-        while i < len(argv):
-            if argv[i] == "--ctrl":
-                i += 1
-                # Capture subsequent non-option tokens as values
-                while i < len(argv) and not argv[i].startswith("-"):
-                    new_argv.extend(["--ctrl", argv[i]])
-                    i += 1
-                continue
-            new_argv.append(argv[i])
-            i += 1
-        sys.argv = [sys.argv[0]] + new_argv
     app()
 
 
