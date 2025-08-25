@@ -1,6 +1,6 @@
 # Programmable Photonic Logic (v2.2)
 
-Turn-key framework for designing, characterizing, and operating *programmable light-light logic* using coupled resonators (photonic molecules).
+A practical, end-to-end toolkit for programmable photonic logic: simulate and characterize coupled-cavity "photonic molecule" gates, run automated XPM-based switching experiments, and scale from room-temperature pJ-class devices to quantum upgrades (QD/PhC & Rydberg-EIT). Includes a Typer CLI, unit tests, bring-up playbooks, and hardware control hooks.
 
 ## Quickstart
 
