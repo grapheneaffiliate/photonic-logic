@@ -1,7 +1,3 @@
-import json
-
-import numpy as np
-
 from plogic.controller import PhotonicMolecule, TWOPI
 from plogic.integration import delta_omega_xpm
 
