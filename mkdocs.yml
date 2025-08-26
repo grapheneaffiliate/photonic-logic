@@ -1,0 +1,20 @@
+site_name: Photonic Logic
+repo_url: https://github.com/grapheneaffiliate/photonic-logic
+repo_name: grapheneaffiliate/photonic-logic
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.instant
+    - content.code.copy
+nav:
+  - Home: index.md
+  - Guide v2.2: guide_v2.2.md
+  - Guide v1.1 (annotated): guide_v1.1_annotated.md
+markdown_extensions:
+  - admonition
+  - codehilite
+  - toc:
+      permalink: true
+plugins:
+  - search
