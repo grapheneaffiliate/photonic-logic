@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import importlib.metadata
 import json
+import math
 from pathlib import Path
 from typing import List
 
+import matplotlib.pyplot as plt
 import pandas as pd
 import typer
 
@@ -13,6 +15,7 @@ from .controller import (
     PhotonicMolecule,
     generate_design_report,
 )
+from .utils import sigmoid
 
 # Keep help string consistent with smoke test expectations
 app = typer.Typer(
@@ -99,6 +102,81 @@ def cascade(
     ctl = ExperimentController(dev)
     res = ctl.test_cascade(n_stages=stages)
     typer.echo(json.dumps(res, indent=2))
+
+
+@app.command("benchmark")
+def benchmark(
+    metric: str = typer.Option(
+        "switching-contrast",
+        "--metric",
+        help="Benchmark metric: 'switching-contrast' or 'cascade-stability'",
+    ),
+    stages: int = typer.Option(2, "--stages", help="Stages for cascade-stability"),
+) -> None:
+    """
+    Run lightweight benchmarks and print a small JSON result.
+
+    - switching-contrast: approximate contrast (dB) between P_ctrl=0 and P_ctrl=1 mW at omega0
+    - cascade-stability: reports min_contrast_dB from test_cascade()
+    """
+    dev = PhotonicMolecule()
+    omega = dev.omega0
+
+    if metric == "switching-contrast":
+        r_off = dev.steady_state_response(omega, P_ctrl=0.0)
+        r_on = dev.steady_state_response(omega, P_ctrl=1e-3)  # 1 mW
+        t_off = max(min(float(r_off["T_through"]), 1.0), 1e-12)
+        t_on = max(min(float(r_on["T_through"]), 1.0), 1e-12)
+        # dB contrast between ON and OFF transmissions
+        contrast_db = 10.0 * math.log10(max(t_on, t_off) / max(min(t_on, t_off), 1e-12))
+        out = {"metric": metric, "contrast_dB": contrast_db}
+        typer.echo(json.dumps(out, indent=2))
+        return
+
+    if metric == "cascade-stability":
+        ctl = ExperimentController(dev)
+        res = ctl.test_cascade(n_stages=stages)
+        # Aggregate minimum across logic variants for a single scalar
+        mins = [res[k]["min_contrast_dB"] for k in res]
+        out = {"metric": metric, "stages": stages, "min_contrast_dB": min(mins) if mins else 0.0}
+        typer.echo(json.dumps(out, indent=2))
+        return
+
+    typer.echo(json.dumps({"error": f"Unknown metric: {metric}"}, indent=2))
+
+
+@app.command("visualize")
+def visualize(
+    mode: str = typer.Option(
+        "soft-threshold", "--mode", help="Visualization mode (e.g., 'soft-threshold')"
+    ),
+    beta: float = typer.Option(20.0, "--beta", help="Sigmoid slope for soft threshold plot"),
+    out: Path = typer.Option(Path("soft_threshold.png"), "--out", help="Output image path"),
+) -> None:
+    """
+    Produce basic visualizations to aid intuition.
+    - soft-threshold: plot y = sigmoid(x - 0.5, beta) for x in [0,1].
+    """
+    if mode == "soft-threshold":
+        import numpy as np
+
+        x = np.linspace(0.0, 1.0, 501)
+        y = sigmoid(x - 0.5, beta)
+        plt.figure(figsize=(5, 3.2))
+        plt.plot(x, y, label=f"sigmoid(x-0.5, beta={beta:g})")
+        plt.axvline(0.5, color="k", ls="--", alpha=0.4)
+        plt.xlabel("Input (normalized)")
+        plt.ylabel("Output")
+        plt.title("Soft Threshold (Sigmoid)")
+        plt.grid(alpha=0.3)
+        plt.legend()
+        out.parent.mkdir(parents=True, exist_ok=True)
+        plt.tight_layout()
+        plt.savefig(out, dpi=150)
+        typer.echo(f"Wrote {out}")
+        return
+
+    typer.echo(json.dumps({"error": f"Unknown mode: {mode}"}, indent=2))
 
 
 def main() -> None:
