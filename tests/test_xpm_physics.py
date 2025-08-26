@@ -1,4 +1,4 @@
-from plogic.controller import PhotonicMolecule, TWOPI
+from plogic.controller import TWOPI, PhotonicMolecule
 from plogic.integration import delta_omega_xpm
 
 
@@ -9,9 +9,15 @@ def test_delta_omega_scaling_and_sign():
     n_eff = 3.4
     g_geom = 1.0
 
-    d0 = delta_omega_xpm(omega0, T_op=300.0, P_ctrl=0.0, n2=n2, A_eff=A_eff, n_eff=n_eff, g_geom=g_geom)
-    d1 = delta_omega_xpm(omega0, T_op=300.0, P_ctrl=1e-3, n2=n2, A_eff=A_eff, n_eff=n_eff, g_geom=g_geom)
-    d2 = delta_omega_xpm(omega0, T_op=300.0, P_ctrl=2e-3, n2=n2, A_eff=A_eff, n_eff=n_eff, g_geom=g_geom)
+    d0 = delta_omega_xpm(
+        omega0, T_op=300.0, P_ctrl=0.0, n2=n2, A_eff=A_eff, n_eff=n_eff, g_geom=g_geom
+    )
+    d1 = delta_omega_xpm(
+        omega0, T_op=300.0, P_ctrl=1e-3, n2=n2, A_eff=A_eff, n_eff=n_eff, g_geom=g_geom
+    )
+    d2 = delta_omega_xpm(
+        omega0, T_op=300.0, P_ctrl=2e-3, n2=n2, A_eff=A_eff, n_eff=n_eff, g_geom=g_geom
+    )
 
     # At zero power, no detuning
     assert d0 == 0.0

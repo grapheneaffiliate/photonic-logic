@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
-import numpy as np
-
 
 def epsilon_r_nonlinear(
     omega: float,
@@ -46,8 +42,8 @@ def epsilon_r_nonlinear(
     """
     # Compute Δn from either Kerr n2 (preferred) or calibrated gXPM
     if n2 is not None:
-        I = P_ctrl / max(A_eff, 1e-24)  # W / m^2
-        delta_n = n2 * I
+        intensity = P_ctrl / max(A_eff, 1e-24)  # W / m^2
+        delta_n = n2 * intensity
     elif gXPM is not None:
         # Map power to an effective index shift via calibration constant (dimension proxy).
         # The exact physical meaning depends on calibration; this path is a fallback.
@@ -91,8 +87,8 @@ def delta_omega_xpm(
     - T_op is accepted for P2 compatibility (e.g., temperature-dependent parameters).
     """
     if n2 is not None:
-        I = P_ctrl / max(A_eff, 1e-24)  # W / m^2
-        delta_n = n2 * I
+        intensity = P_ctrl / max(A_eff, 1e-24)  # W / m^2
+        delta_n = n2 * intensity
     elif gXPM is not None:
         delta_n = gXPM * P_ctrl
     else:

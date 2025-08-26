@@ -9,8 +9,9 @@ import pandas as pd
 from scipy.integrate import solve_ivp
 from scipy.optimize import curve_fit
 from scipy.signal import find_peaks
+
 from .integration.optics import delta_omega_xpm
-from .utils import soft_logic, hard_logic
+from .utils import soft_logic
 
 HBAR = 1.054_571_817e-34
 C = 299_792_458.0
@@ -270,7 +271,9 @@ class ExperimentController:
                 P_high = P_mid
         return P_high * pulse_duration
 
-    def test_cascade(self, n_stages: int = 2, threshold_mode: str = "hard", beta: float = 25.0) -> Dict:
+    def test_cascade(
+        self, n_stages: int = 2, threshold_mode: str = "hard", beta: float = 25.0
+    ) -> Dict:
         """
         Simulate simple cascade outputs. Supports soft or hard threshold mapping.
         - threshold_mode: "hard" returns binary logic_out (0/1) using thr=0.5.

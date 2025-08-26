@@ -71,9 +71,7 @@ def characterize(
     dev = PhotonicMolecule(xpm_mode=xpm_mode, n2=n2, A_eff=a_eff, n_eff=n_eff, g_geom=g_geom)
     ctl = ExperimentController(dev)
     ctl.run_full_characterization()
-    ctl.results["cascade"] = ctl.test_cascade(
-        n_stages=stages, threshold_mode=threshold, beta=beta
-    )
+    ctl.results["cascade"] = ctl.test_cascade(n_stages=stages, threshold_mode=threshold, beta=beta)
     rep = generate_design_report(dev, ctl.results, filename=str(report))
     typer.echo(json.dumps(rep, indent=2))
     typer.echo(f"Saved report to {report}")
@@ -118,7 +116,9 @@ def truth_table(
     df = pd.DataFrame(rows)
     thr = 0.5
     if (threshold or "").lower() == "soft":
-        df["logic_out_soft"] = df["T_through"].apply(lambda v: float(soft_logic(float(v), thr, beta)))
+        df["logic_out_soft"] = df["T_through"].apply(
+            lambda v: float(soft_logic(float(v), thr, beta))
+        )
     else:
         df["logic_out"] = (df["T_through"] > thr).astype(int)
 

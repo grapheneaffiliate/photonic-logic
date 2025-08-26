@@ -1,6 +1,6 @@
 import numpy as np
 
-from plogic.utils import sigmoid, soft_logic, hard_logic
+from plogic.utils import sigmoid, soft_logic
 
 
 def test_sigmoid_bounds_monotone():
@@ -19,7 +19,6 @@ def test_soft_logic_limits():
     vals = np.array([0.0, 0.25, 0.5, 0.75, 1.0])
     beta = 1e3  # large slope -> approach hard threshold
     soft = soft_logic(vals, thr, beta)
-    hard = (vals > thr).astype(int)
 
     # Far from threshold, soft approximates hard
     assert np.isclose(float(soft[0]), 0.0, atol=1e-2)
