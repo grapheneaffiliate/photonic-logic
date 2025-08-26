@@ -15,7 +15,7 @@ from .controller import (
     PhotonicMolecule,
     generate_design_report,
 )
-from .utils import sigmoid
+from .utils.switching import sigmoid
 
 # Keep help string consistent with smoke test expectations
 app = typer.Typer(

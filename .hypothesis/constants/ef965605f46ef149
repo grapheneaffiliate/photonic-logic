@@ -1,0 +1,4 @@
+# file: C:\Users\atchi\AppData\Roaming\Python\Python311\site-packages\dateutil\tz\_common.py
+# hypothesis_version: 6.138.3
+
+['%s(...)', 'day', 'enfold', 'fold', 'hour', 'microsecond', 'minute', 'month', 'second', 'tzinfo', 'tzname_in_python2', 'year']
