@@ -55,7 +55,7 @@ exclude = ["examples", "notebooks", "docs", "data", "*.ipynb"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
-ignore = ["E203", "E501"]
+ignore = ["E203", "E501", "E402"]
 
 [tool.mypy]
 python_version = "3.10"
