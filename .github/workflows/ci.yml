@@ -1,14 +1,19 @@
 name: CI
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
-    branches: [ "**" ]
+    branches-ignore: [ main ]
   pull_request:
     branches: [ main, master ]
 
 jobs:
   build-test:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
