@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib.metadata
 import json
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import pandas as pd
 import typer
@@ -13,6 +13,7 @@ from .controller import (
     PhotonicMolecule,
     generate_design_report,
 )
+from .utils import soft_logic
 
 # Keep help string consistent with smoke test expectations
 app = typer.Typer(
@@ -48,14 +49,29 @@ def characterize(
         "--report",
         help="Output JSON report path",
     ),
+    threshold: str = typer.Option(
+        "hard", "--threshold", help="Thresholding mode: 'hard' or 'soft'"
+    ),
+    beta: float = typer.Option(25.0, "--beta", help="Sigmoid slope (soft mode)"),
+    xpm_mode: str = typer.Option(
+        "linear", "--xpm-mode", help="XPM model: 'linear' (default) or 'physics'"
+    ),
+    n2: Optional[float] = typer.Option(
+        None, "--n2", help="Kerr coefficient n2 (m^2/W) for physics XPM mode"
+    ),
+    a_eff: float = typer.Option(
+        0.6e-12, "--a-eff", help="Effective mode area A_eff (m^2) for physics mode"
+    ),
+    n_eff: float = typer.Option(3.4, "--n-eff", help="Effective index n_eff"),
+    g_geom: float = typer.Option(1.0, "--g-geom", help="Geometry scaling g_geom"),
 ) -> None:
     """
     Run default characterization and save report JSON.
     """
-    dev = PhotonicMolecule()
+    dev = PhotonicMolecule(xpm_mode=xpm_mode, n2=n2, A_eff=a_eff, n_eff=n_eff, g_geom=g_geom)
     ctl = ExperimentController(dev)
     ctl.run_full_characterization()
-    ctl.results["cascade"] = ctl.test_cascade(n_stages=stages)
+    ctl.results["cascade"] = ctl.test_cascade(n_stages=stages, threshold_mode=threshold, beta=beta)
     rep = generate_design_report(dev, ctl.results, filename=str(report))
     typer.echo(json.dumps(rep, indent=2))
     typer.echo(f"Saved report to {report}")
@@ -69,13 +85,28 @@ def truth_table(
         help="Control powers in W (repeat: --ctrl 0 --ctrl 0.001)",
     ),
     out: Path = typer.Option(Path("truth_table.csv"), "--out", help="Output CSV"),
+    threshold: str = typer.Option(
+        "hard", "--threshold", help="Thresholding mode: 'hard' or 'soft'"
+    ),
+    beta: float = typer.Option(25.0, "--beta", help="Sigmoid slope (soft mode)"),
+    xpm_mode: str = typer.Option(
+        "linear", "--xpm-mode", help="XPM model: 'linear' (default) or 'physics'"
+    ),
+    n2: Optional[float] = typer.Option(
+        None, "--n2", help="Kerr coefficient n2 (m^2/W) for physics XPM mode"
+    ),
+    a_eff: float = typer.Option(
+        0.6e-12, "--a-eff", help="Effective mode area A_eff (m^2) for physics mode"
+    ),
+    n_eff: float = typer.Option(3.4, "--n-eff", help="Effective index n_eff"),
+    g_geom: float = typer.Option(1.0, "--g-geom", help="Geometry scaling g_geom"),
 ) -> None:
     """
     Compute a truth table for control powers and write CSV.
     Column names: P_ctrl_W, T_through, T_drop, etc.
     """
     powers = [float(p) for p in (ctrl if ctrl else [0.0, 0.001, 0.002])]
-    dev = PhotonicMolecule()
+    dev = PhotonicMolecule(xpm_mode=xpm_mode, n2=n2, A_eff=a_eff, n_eff=n_eff, g_geom=g_geom)
     omega = dev.omega0
 
     rows = []
@@ -83,6 +114,14 @@ def truth_table(
         resp = dev.steady_state_response(omega, P)
         rows.append({"P_ctrl_W": P, **resp})
     df = pd.DataFrame(rows)
+    thr = 0.5
+    if (threshold or "").lower() == "soft":
+        df["logic_out_soft"] = df["T_through"].apply(
+            lambda v: float(soft_logic(float(v), thr, beta))
+        )
+    else:
+        df["logic_out"] = (df["T_through"] > thr).astype(int)
+
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out, index=False)
     typer.echo(f"Wrote {out}")
@@ -91,13 +130,28 @@ def truth_table(
 @app.command("cascade")
 def cascade(
     stages: int = typer.Option(2, "--stages", help="Number of cascaded stages"),
+    threshold: str = typer.Option(
+        "hard", "--threshold", help="Thresholding mode: 'hard' or 'soft'"
+    ),
+    beta: float = typer.Option(25.0, "--beta", help="Sigmoid slope (soft mode)"),
+    xpm_mode: str = typer.Option(
+        "linear", "--xpm-mode", help="XPM model: 'linear' (default) or 'physics'"
+    ),
+    n2: Optional[float] = typer.Option(
+        None, "--n2", help="Kerr coefficient n2 (m^2/W) for physics XPM mode"
+    ),
+    a_eff: float = typer.Option(
+        0.6e-12, "--a-eff", help="Effective mode area A_eff (m^2) for physics mode"
+    ),
+    n_eff: float = typer.Option(3.4, "--n-eff", help="Effective index n_eff"),
+    g_geom: float = typer.Option(1.0, "--g-geom", help="Geometry scaling g_geom"),
 ) -> None:
     """
     Simulate simple cascade outputs and print JSON.
     """
-    dev = PhotonicMolecule()
+    dev = PhotonicMolecule(xpm_mode=xpm_mode, n2=n2, A_eff=a_eff, n_eff=n_eff, g_geom=g_geom)
     ctl = ExperimentController(dev)
-    res = ctl.test_cascade(n_stages=stages)
+    res = ctl.test_cascade(n_stages=stages, threshold_mode=threshold, beta=beta)
     typer.echo(json.dumps(res, indent=2))
 
 

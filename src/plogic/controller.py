@@ -10,6 +10,9 @@ from scipy.integrate import solve_ivp
 from scipy.optimize import curve_fit
 from scipy.signal import find_peaks
 
+from .integration.optics import delta_omega_xpm
+from .utils import soft_logic
+
 HBAR = 1.054_571_817e-34
 C = 299_792_458.0
 TWOPI = 2 * np.pi
@@ -34,6 +37,14 @@ class PhotonicMolecule:
     delta_A0: float = 0.0
     delta_B0: float = 0.0
 
+    # P1: physics-based XPM parameters and operating temperature (used in P2)
+    T_op: float = 300.0  # K
+    xpm_mode: str = "linear"  # "linear" (default) or "physics"
+    n2: Optional[float] = None  # Kerr coefficient (m^2/W) for physics mode
+    A_eff: float = 0.6e-12  # effective area (m^2)
+    n_eff: float = 3.4  # effective index
+    g_geom: float = 1.0  # geometry scaling for Δn -> detuning
+
     def eigenfrequencies(self) -> Tuple[complex, complex]:
         kappa_avg = (self.kappa_A + self.kappa_B) / 2
         kappa_diff = (self.kappa_A - self.kappa_B) / 2
@@ -49,7 +60,7 @@ class PhotonicMolecule:
         delta_bias_B: float = 0.0,
     ) -> np.ndarray:
         delta_A = omega - self.omega0 + self.delta_A0 + delta_bias_A
-        delta_A += self.g_XPM * P_ctrl
+        delta_A += self.xpm_detuning(P_ctrl)
         delta_B = omega - self.omega0 + self.delta_B0 + delta_bias_B
         j = 1j
         M = np.array(
@@ -60,6 +71,26 @@ class PhotonicMolecule:
             dtype=complex,
         )
         return M
+
+    def xpm_detuning(self, P_ctrl: float) -> float:
+        """
+        Compute XPM-induced detuning Δω for cavity A as a function of control power.
+        Default: linear model (g_XPM * P_ctrl). Physics mode: use delta_omega_xpm().
+        """
+        if (self.xpm_mode or "").lower() == "physics":
+            return float(
+                delta_omega_xpm(
+                    omega0=self.omega0,
+                    T_op=self.T_op,
+                    P_ctrl=P_ctrl,
+                    n2=self.n2,
+                    gXPM=None,  # prefer n2 path for physics mode
+                    A_eff=self.A_eff,
+                    n_eff=self.n_eff,
+                    g_geom=self.g_geom,
+                )
+            )
+        return float(self.g_XPM * P_ctrl)
 
     # EIT-induced frequency pull on cavity B
     def delta_omega_eit(self, Delta_p, g0, N, Omega_c, Delta_c, gamma_eg, gamma_rg, U_block):
@@ -240,27 +271,43 @@ class ExperimentController:
                 P_high = P_mid
         return P_high * pulse_duration
 
-    def test_cascade(self, n_stages: int = 2) -> Dict:
+    def test_cascade(
+        self, n_stages: int = 2, threshold_mode: str = "hard", beta: float = 25.0
+    ) -> Dict:
+        """
+        Simulate simple cascade outputs. Supports soft or hard threshold mapping.
+        - threshold_mode: "hard" returns binary logic_out (0/1) using thr=0.5.
+                          "soft" returns logic_out_soft in (0,1) via sigmoid.
+        - beta: slope parameter for soft threshold.
+        """
         results = {}
         for logic in ["AND", "OR", "XOR"]:
             inputs = [(0, 0), (0, 1), (1, 0), (1, 1)]
             outputs = []
             for s, c in inputs:
                 P_ctrl = c * 1e-3
-                signal = s
+                signal = float(s)
                 for stage in range(n_stages):
                     resp = self.device.steady_state_response(
                         self.device.omega0, P_ctrl if stage == 0 else 0
                     )
-                    signal *= resp["T_through"]
+                    signal *= float(resp["T_through"])
                 outputs.append(signal)
             thr = 0.5
-            logic_out = [1 if o > thr else 0 for o in outputs]
-            results[logic] = {
-                "outputs": outputs,
-                "logic_out": logic_out,
-                "min_contrast_dB": 10 * np.log10(max(outputs) / max(min(outputs), 1e-12)),
-            }
+            if (threshold_mode or "").lower() == "soft":
+                logic_soft = [float(soft_logic(o, thr, beta)) for o in outputs]
+                results[logic] = {
+                    "outputs": outputs,
+                    "logic_out_soft": logic_soft,
+                    "min_contrast_dB": 10 * np.log10(max(outputs) / max(min(outputs), 1e-12)),
+                }
+            else:
+                logic_out = [1 if o > thr else 0 for o in outputs]
+                results[logic] = {
+                    "outputs": outputs,
+                    "logic_out": logic_out,
+                    "min_contrast_dB": 10 * np.log10(max(outputs) / max(min(outputs), 1e-12)),
+                }
         return results
 
 
