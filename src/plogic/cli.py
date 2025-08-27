@@ -574,6 +574,7 @@ def demo(
     report: str = typer.Option("power", "--report", help="Include power analysis: 'none' or 'power'"),
     output: str = typer.Option("json", "--output", help="Output format: 'json', 'truth-table', or 'csv'"),
     save_csv: Optional[Path] = typer.Option(None, "--csv", help="Save results as CSV"),
+    save_primary: Optional[Path] = typer.Option(None, "--save-primary", help="Save complete demo output as JSON"),
     P_high_mW: Optional[float] = typer.Option(None, "--P-high-mW", help="Drive power [mW] (auto-optimized per platform)"),
     pulse_ns: Optional[float] = typer.Option(None, "--pulse-ns", help="Pulse width [ns] (auto-optimized per platform)"),
 ) -> None:
@@ -716,26 +717,42 @@ def demo(
             typer.echo(f"   Cascade depth limit: {power_rep.max_depth_meeting_thresh} stages")
             typer.echo(f"   Thermal safety: {power_rep.thermal_flag}")
             typer.echo()
+            typer.echo(f"📊 Step 5: Contrast Breakdown")
+            contrast_data = power_rep.raw.get("contrast_breakdown", {})
+            typer.echo(f"   Floor contrast: {contrast_data.get('floor_contrast_dB', 0):.1f} dB")
+            typer.echo(f"   Target contrast: {contrast_data.get('target_contrast_dB', 0):.1f} dB")
+            typer.echo(f"   Margin: {contrast_data.get('margin_dB', 0):.1f} dB")
+            typer.echo(f"   Meets extinction: {power_rep.raw.get('extinction', {}).get('meets_extinction', False)}")
+            typer.echo()
             typer.echo("🎯 Complete Pipeline Results:")
             typer.echo("=" * 50)
     
+    # Prepare combined output
+    combined_output = None
+    if report == "power":
+        combined_output = {
+            "cascade": filtered_res,
+            "power_analysis": power_rep.raw if report == "power" else None,
+            "demo_info": {
+                "platform": platform,
+                "gate": gate,
+                "threshold": threshold,
+                "beta": beta,
+                "P_high_mW": P_high_mW_resolved,
+                "pulse_ns": pulse_ns_resolved
+            }
+        }
+    
+    # Save to file if requested
+    if save_primary:
+        output_data = combined_output if combined_output else filtered_res
+        save_json(output_data, save_primary)
+        typer.echo(f"💾 Complete output saved to {save_primary}")
+    
     # Output results based on format
     if output == "json":
-        if report == "power":
-            # Combine cascade and power results
-            combined = {
-                "cascade": filtered_res,
-                "power_analysis": power_rep.raw if report == "power" else None,
-                "demo_info": {
-                    "platform": platform,
-                    "gate": gate,
-                    "threshold": threshold,
-                    "beta": beta,
-                    "P_high_mW": P_high_mW,
-                    "pulse_ns": pulse_ns
-                }
-            }
-            typer.echo(json.dumps(combined, indent=2))
+        if combined_output:
+            typer.echo(json.dumps(combined_output, indent=2))
         else:
             typer.echo(json.dumps(filtered_res, indent=2))
     elif output == "truth-table":
