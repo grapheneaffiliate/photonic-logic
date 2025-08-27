@@ -179,6 +179,7 @@ def cascade(
         21.0, "--extinction-target-dB", help="Target extinction ratio [dB]"
     ),
     er_epsilon: float = typer.Option(1e-12, "--er-epsilon", help="Tolerance for ER boundary check"),
+    thermal_scale: Optional[float] = typer.Option(None, "--thermal-scale", help="Platform-specific thermal multiplier (overrides DB)"),
     L_eff_um: float = typer.Option(10.0, "--L-eff-um", help="Effective interaction length [um]"),
     # Output options
     save_primary: Optional[Path] = typer.Option(
@@ -291,6 +292,7 @@ def cascade(
             Aeff_um2=Aeff_um2,
             dn_dT_per_K=(platform_obj.thermal.dn_dT_per_K if platform_obj else None),
             tau_thermal_ns=(platform_obj.thermal.tau_thermal_ns if platform_obj else None),
+            thermal_scale=thermal_scale,
             L_eff_um=L_eff_um,
             include_2pa=include_2pa,
             beta_2pa_m_per_W=(platform_obj.nonlinear.beta_2pa_m_per_W if platform_obj else 0.0),

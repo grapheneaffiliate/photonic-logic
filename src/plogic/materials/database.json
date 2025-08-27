@@ -15,7 +15,8 @@
         "thermal_conductivity_W_mK": 148.0,
         "specific_heat_J_kgK": 700.0,
         "density_kg_m3": 2329.0,
-        "tau_thermal_ns": 100.0
+        "tau_thermal_ns": 100.0,
+        "thermal_scale": 1.0
       },
       "fabrication": {
         "Q_max": 1000000.0,
@@ -43,7 +44,8 @@
         "thermal_conductivity_W_mK": 30.0,
         "specific_heat_J_kgK": 710.0,
         "density_kg_m3": 3100.0,
-        "tau_thermal_ns": 200.0
+        "tau_thermal_ns": 200.0,
+        "thermal_scale": 1.0
       },
       "fabrication": {
         "Q_max": 10000000.0,
@@ -71,7 +73,8 @@
         "thermal_conductivity_W_mK": 55.0,
         "specific_heat_J_kgK": 330.0,
         "density_kg_m3": 5317.0,
-        "tau_thermal_ns": 60.0
+        "tau_thermal_ns": 60.0,
+        "thermal_scale": 1.0
       },
       "fabrication": {
         "Q_max": 500000.0,

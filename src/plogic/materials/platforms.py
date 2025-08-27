@@ -33,6 +33,7 @@ class Thermal:
     specific_heat_J_kgK: float
     density_kg_m3: float
     tau_thermal_ns: float
+    thermal_scale: float = 1.0  # Platform-specific thermal multiplier
 
 
 @dataclass
