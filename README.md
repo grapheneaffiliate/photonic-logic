@@ -87,6 +87,16 @@ Understanding these parameters is essential for photonic circuit design:
 - **ER margin**: Extinction ratio safety margin for fabrication tolerances
 - **Thermal flag**: ok/caution/danger based on thermal vs Kerr effects
 
+### Thermal Model Notes
+
+Platform-specific thermal characteristics determine safe operating ranges:
+
+- **AlGaAs**: High efficiency but thermal-sensitive above 1 mW due to high dn/dT (3e-4)
+- **Silicon**: TPA heating limits operation above 10 mW, moderate thermal sensitivity
+- **SiN**: Thermally stable up to 500 mW due to weak nonlinearity and low dn/dT (2.5e-5)
+
+**Thermal Assessment**: The platform uses material-specific thresholds reflecting real semiconductor physics rather than universal limits.
+
 ## Real-World Design Examples
 
 ### Low-Power Dense Logic (AlGaAs)
