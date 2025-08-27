@@ -16,7 +16,7 @@ from .controller import (
 )
 from .materials import PlatformDB
 from .utils import soft_logic
-from .utils.io import save_csv, save_json
+from .utils.io import save_csv, save_json, save_truth_table_csv
 
 # Keep help string consistent with smoke test expectations
 app = typer.Typer(
@@ -572,8 +572,8 @@ def demo(
     beta: float = typer.Option(30.0, "--beta", help="Sigmoid slope for soft thresholding"),
     show_pipeline: bool = typer.Option(True, "--show-pipeline", help="Show step-by-step pipeline"),
     report: str = typer.Option("power", "--report", help="Include power analysis: 'none' or 'power'"),
-    output: str = typer.Option("json", "--output", help="Output format: 'json', 'truth-table', or 'csv'"),
-    save_csv: Optional[Path] = typer.Option(None, "--csv", help="Save results as CSV"),
+    output: str = typer.Option("summary", "--output", help="Output format: 'summary', 'truth-table', 'json', or 'full'"),
+    csv: Optional[Path] = typer.Option(None, "--csv", help="When --output truth-table, write the truth table to this CSV path"),
     save_primary: Optional[Path] = typer.Option(None, "--save-primary", help="Save complete demo output as JSON"),
     P_high_mW: Optional[float] = typer.Option(None, "--P-high-mW", help="Drive power [mW] (auto-optimized per platform)"),
     pulse_ns: Optional[float] = typer.Option(None, "--pulse-ns", help="Pulse width [ns] (auto-optimized per platform)"),
@@ -750,51 +750,63 @@ def demo(
         typer.echo(f"💾 Complete output saved to {save_primary}")
     
     # Output results based on format
-    if output == "json":
+    if output == "truth-table":
+        # Print truth table to stdout
+        if not show_pipeline:  # Already shown above if show_pipeline
+            typer.echo("\nTruth Table (A,B):")
+            for gate_name, gate_data in filtered_res.items():
+                outputs = gate_data.get("outputs")
+                logic_out_soft = gate_data.get("logic_out_soft")
+                logic_out_hard = gate_data.get("logic_out")
+                
+                patterns = [(0, 0), (0, 1), (1, 0), (1, 1)]
+                for idx, (a, b) in enumerate(patterns):
+                    s = None if logic_out_soft is None else logic_out_soft[idx]
+                    h = None if logic_out_hard is None else logic_out_hard[idx]
+                    typer.echo(f"  ({a},{b})  soft={s}  hard={h}")
+                
+                # Show contrast breakdown for truth-table output
+                if report == "power" and not show_pipeline:
+                    cb = power_rep.raw.get("contrast_breakdown", {})
+                    if cb:
+                        typer.echo("\nContrast Breakdown:")
+                        typer.echo(f"  floor:  {cb['floor_contrast_dB']:.1f} dB")
+                        typer.echo(f"  target: {cb['target_contrast_dB']:.1f} dB")
+                        typer.echo(f"  margin: {cb['margin_dB']:.1f} dB")
+        
+        # CSV export if requested (regardless of show_pipeline)
+        if csv:
+            for gate_name, gate_data in filtered_res.items():
+                outputs = gate_data.get("outputs")
+                logic_out_soft = gate_data.get("logic_out_soft")
+                logic_out_hard = gate_data.get("logic_out")
+                
+                save_truth_table_csv(
+                    gate_name=gate_name,
+                    outputs=outputs,
+                    logic_out_soft=logic_out_soft,
+                    logic_out_hard=logic_out_hard,
+                    path=csv,
+                )
+                if not show_pipeline:
+                    typer.echo(f"\n[demo] Wrote truth table CSV → {csv}")
+    
+    elif output == "json" or output == "full":
         if combined_output:
             typer.echo(json.dumps(combined_output, indent=2))
         else:
             typer.echo(json.dumps(filtered_res, indent=2))
-    elif output == "truth-table":
-        if not show_pipeline:  # Already shown above if show_pipeline
+    
+    elif output == "summary":
+        # Default summary output (existing pipeline display)
+        if not show_pipeline:
+            # If pipeline wasn't shown, show a brief summary
+            typer.echo(f"Gate: {gate}, Platform: {platform}, Threshold: {threshold}")
             for gate_name, gate_data in filtered_res.items():
                 logic_out = gate_data.get("logic_out", gate_data.get("logic_out_soft", []))
                 typer.echo(f"{gate_name}: {logic_out}")
-    elif output == "csv" or save_csv:
-        # Create CSV-friendly format
-        csv_data = []
-        for gate_name, gate_data in filtered_res.items():
-            logic_out = gate_data.get("logic_out", gate_data.get("logic_out_soft", []))
-            for i, (inputs, output) in enumerate(zip([(0,0), (0,1), (1,0), (1,1)], logic_out)):
-                row = {
-                    "gate": gate_name,
-                    "input_A": inputs[0],
-                    "input_B": inputs[1],
-                    "output": output,
-                    "platform": platform,
-                    "threshold": threshold,
-                    "beta": beta,
-                    "P_high_mW": P_high_mW,
-                    "pulse_ns": pulse_ns
-                }
-                if report == "power":
-                    row.update({
-                        "E_op_fJ": power_rep.E_op_fJ,
-                        "thermal_flag": power_rep.thermal_flag,
-                        "cascade_depth": power_rep.max_depth_meeting_thresh
-                    })
-                csv_data.append(row)
-        
-        if save_csv:
-            import pandas as pd
-            df = pd.DataFrame(csv_data)
-            save_csv.parent.mkdir(parents=True, exist_ok=True)
-            df.to_csv(save_csv, index=False)
-            typer.echo(f"💾 Results saved to {save_csv}")
-        else:
-            import pandas as pd
-            df = pd.DataFrame(csv_data)
-            typer.echo(df.to_string(index=False))
+            if report == "power":
+                typer.echo(f"Energy: {power_rep.E_op_fJ:.0f} fJ, Thermal: {power_rep.thermal_flag}")
 
     if show_pipeline:
         typer.echo()

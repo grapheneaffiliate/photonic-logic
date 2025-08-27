@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import json
 from pathlib import Path
-from typing import Any, Dict, Iterable, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
 def save_json(data: Dict[str, Any], path: str | Path) -> None:
@@ -46,3 +46,48 @@ def save_csv(report: Dict[str, Any], path: str | Path) -> None:
         if write_header:
             writer.writeheader()
         writer.writerow(flat)
+
+
+def save_truth_table_csv(
+    gate_name: str,
+    outputs: List[float] | None,
+    logic_out_soft: List[float] | None,
+    logic_out_hard: List[int] | None,
+    path: str | Path,
+) -> None:
+    """
+    Save a single gate truth table to CSV with inputs (A,B) rows: 00,01,10,11.
+    Columns:
+      gate, A, B, soft, hard
+    soft = analog output in [0,1] if available
+    hard = 0/1 if available
+    """
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+
+    # Prefer explicit 'logic_out_soft' if present; otherwise fall back to normalized 'outputs'
+    soft_vals = None
+    if logic_out_soft is not None:
+        soft_vals = logic_out_soft
+    elif outputs is not None:
+        soft_vals = outputs
+
+    # Construct rows (4 canonical input patterns)
+    patterns = [(0, 0), (0, 1), (1, 0), (1, 1)]
+    rows = []
+    for idx, (a, b) in enumerate(patterns):
+        row = {
+            "gate": gate_name,
+            "A": a,
+            "B": b,
+            "soft": (None if soft_vals is None else soft_vals[idx]),
+            "hard": (None if logic_out_hard is None else logic_out_hard[idx]),
+        }
+        rows.append(row)
+
+    # Write CSV (always with header, overwrite)
+    with p.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["gate", "A", "B", "soft", "hard"])
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
