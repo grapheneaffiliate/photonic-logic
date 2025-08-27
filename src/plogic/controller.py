@@ -282,21 +282,20 @@ class ExperimentController:
         """
         results = {}
         
-        # Define truth tables for each logic gate
-        truth_tables = {
-            "AND": [0, 0, 0, 1],  # Only true when both inputs are 1
-            "OR": [0, 1, 1, 1],   # True when at least one input is 1
-            "XOR": [0, 1, 1, 0],  # True when inputs are different
-        }
+        # Truth tables for each logic gate (for reference):
+        # AND: [0, 0, 0, 1] - Only true when both inputs are 1
+        # OR:  [0, 1, 1, 1] - True when at least one input is 1
+        # XOR: [0, 1, 1, 0] - True when inputs are different
         
         for logic in ["AND", "OR", "XOR"]:
             inputs = [(0, 0), (0, 1), (1, 0), (1, 1)]
             outputs = []
-            expected_outputs = truth_tables[logic]
             
             for i, (in1, in2) in enumerate(inputs):
-                # Get expected output for this logic gate
-                expected = expected_outputs[i]
+                # Expected outputs for each logic gate:
+                # AND[i]: [0, 0, 0, 1][i]
+                # OR[i]:  [0, 1, 1, 1][i]
+                # XOR[i]: [0, 1, 1, 0][i]
                 
                 # Simulate photonic implementation
                 # For AND: both signals need to pass through
