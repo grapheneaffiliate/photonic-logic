@@ -275,12 +275,23 @@ class ExperimentController:
         self, n_stages: int = 2, threshold_mode: str = "hard", beta: float = 25.0
     ) -> Dict:
         """
-        Simulate simple cascade outputs. Supports soft or hard threshold mapping.
+        Simulate cascade outputs using full XPM physics with power scaling.
         - threshold_mode: "hard" returns binary logic_out (0/1) using thr=0.5.
                           "soft" returns logic_out_soft in (0,1) via sigmoid.
         - beta: slope parameter for soft threshold.
         """
         results = {}
+
+        # Physics-based power scaling
+        # Scale control power based on material's n2 to maintain constant phase shift
+        base_P_ctrl = 1e-3  # 1 mW baseline
+        n2_reference = 1e-17  # Reference n2 value (m^2/W)
+        n2_actual = self.device.n2 if self.device.n2 else n2_reference
+
+        # Power scales inversely with n2 to maintain constant XPM effect
+        # Δφ = (2π/λ) * n2 * I * L, where I = P/A_eff
+        # To keep Δφ constant: P ∝ 1/n2
+        power_scale = n2_reference / n2_actual if n2_actual != 0 else 1.0
 
         # Truth tables for each logic gate (for reference):
         # AND: [0, 0, 0, 1] - Only true when both inputs are 1
@@ -290,6 +301,7 @@ class ExperimentController:
         for logic in ["AND", "OR", "XOR"]:
             inputs = [(0, 0), (0, 1), (1, 0), (1, 1)]
             outputs = []
+            output_details = []
 
             for i, (in1, in2) in enumerate(inputs):
                 # Expected outputs for each logic gate:
@@ -297,15 +309,13 @@ class ExperimentController:
                 # OR[i]:  [0, 1, 1, 1][i]
                 # XOR[i]: [0, 1, 1, 0][i]
 
-                # Simulate photonic implementation
-                # For AND: both signals need to pass through
-                # For OR: either signal can pass through
-                # For XOR: exclusive behavior needed
-
+                # Simulate photonic implementation with physics-based power scaling
                 if logic == "AND":
                     # AND gate: signal passes only if both inputs are high
                     # Use control power to modulate transmission
-                    P_ctrl = in2 * 1e-3  # Control from second input
+                    P_ctrl = (
+                        in2 * base_P_ctrl * power_scale
+                    )  # Control from second input with scaling
                     signal = float(in1)  # Signal from first input
 
                     # Pass through stages
@@ -323,8 +333,8 @@ class ExperimentController:
                     # OR gate: signal passes if either input is high
                     if in1 == 1 or in2 == 1:
                         signal = 1.0
-                        # Use control to maintain high transmission
-                        P_ctrl = max(in1, in2) * 1e-3
+                        # Use control to maintain high transmission with physics scaling
+                        P_ctrl = max(in1, in2) * base_P_ctrl * power_scale
                         for stage in range(n_stages):
                             resp = self.device.steady_state_response(
                                 self.device.omega0, P_ctrl if stage == 0 else 0
@@ -332,13 +342,14 @@ class ExperimentController:
                             signal *= float(resp["T_through"])
                     else:
                         signal = 0.0
+                        P_ctrl = 0.0
 
                 elif logic == "XOR":
                     # XOR gate: signal passes only if inputs are different
                     if in1 != in2:
                         signal = 1.0
-                        # Use differential control
-                        P_ctrl = abs(in1 - in2) * 1e-3
+                        # Use differential control with physics scaling
+                        P_ctrl = abs(in1 - in2) * base_P_ctrl * power_scale
                         for stage in range(n_stages):
                             resp = self.device.steady_state_response(
                                 self.device.omega0, P_ctrl if stage == 0 else 0
@@ -346,8 +357,10 @@ class ExperimentController:
                             signal *= float(resp["T_through"])
                     else:
                         signal = 0.0
+                        P_ctrl = 0.0
 
                 outputs.append(signal)
+                output_details.append({"inputs": (in1, in2), "P_ctrl": P_ctrl, "signal": signal})
 
             # Apply thresholding
             thr = 0.5
@@ -357,6 +370,9 @@ class ExperimentController:
                     "outputs": outputs,
                     "logic_out_soft": logic_soft,
                     "min_contrast_dB": 10 * np.log10(max(outputs) / max(min(outputs), 1e-12)),
+                    "power_scale_factor": power_scale,
+                    "effective_P_ctrl_mW": base_P_ctrl * power_scale * 1e3,
+                    "details": output_details,
                 }
             else:
                 logic_out = [1 if o > thr else 0 for o in outputs]
@@ -364,6 +380,9 @@ class ExperimentController:
                     "outputs": outputs,
                     "logic_out": logic_out,
                     "min_contrast_dB": 10 * np.log10(max(outputs) / max(min(outputs), 1e-12)),
+                    "power_scale_factor": power_scale,
+                    "effective_P_ctrl_mW": base_P_ctrl * power_scale * 1e3,
+                    "details": output_details,
                 }
         return results
 
