@@ -1,5 +1,6 @@
 import pytest
-from plogic.materials import PlatformDB, Platform, compute_gamma_from_params
+
+from plogic.materials import PlatformDB, compute_gamma_from_params
 
 
 def test_db_has_three_platforms():

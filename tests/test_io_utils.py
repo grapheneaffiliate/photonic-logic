@@ -2,9 +2,7 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
-
-from plogic.utils.io import save_json, save_csv
+from plogic.utils.io import save_csv, save_json
 
 
 def test_save_json():

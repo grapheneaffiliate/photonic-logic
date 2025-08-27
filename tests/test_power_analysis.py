@@ -1,4 +1,3 @@
-import pytest
 from plogic.analysis import PowerInputs, compute_power_report
 
 
