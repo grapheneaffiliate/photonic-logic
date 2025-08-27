@@ -48,7 +48,8 @@ class PowerInputs:
     P_high_mW: float = 1.0  # logic-1 drive power at source
     threshold_norm: float = 0.5  # normalized threshold (0..1)
     worst_off_norm: float = 0.01  # worst-case analog OFF (normalized to high=1)
-    extinction_target_dB: float = 20.0
+    extinction_target_dB: float = 21.0  # Default guardband improved
+    er_epsilon: float = 1e-12  # Tolerance for floating-point ER boundary
 
     # Nonlinear/geometry for thermal estimate
     n2_m2_per_W: Optional[float] = None
@@ -152,7 +153,11 @@ def compute_power_report(cfg: PowerInputs) -> PowerReport:
     # ---- leakage/extinction check ----
     # Required OFF <= ON / 10^(ER/10)
     target_off_norm = 1.0 / (10.0 ** (cfg.extinction_target_dB / 10.0))
-    meets_ext = cfg.worst_off_norm <= target_off_norm
+    meets_ext = cfg.worst_off_norm <= (target_off_norm + cfg.er_epsilon)
+
+    # Enhanced contrast breakdown
+    floor_contrast_dB = 10.0 * math.log10(1.0 / max(cfg.worst_off_norm, 1e-30))
+    target_contrast_dB = cfg.extinction_target_dB
 
     # ---- thermal heuristic (Δn_th vs Δn_Kerr) ----
     delta_n_kerr = delta_n_thermal = thermal_ratio = None
@@ -207,6 +212,13 @@ def compute_power_report(cfg: PowerInputs) -> PowerReport:
             "worst_off_norm": cfg.worst_off_norm,
             "extinction_target_dB": cfg.extinction_target_dB,
             "meets_extinction": meets_ext,
+            "er_epsilon": cfg.er_epsilon,
+        },
+        "contrast_breakdown": {
+            "floor_contrast_dB": floor_contrast_dB,
+            "target_contrast_dB": target_contrast_dB,
+            "margin_dB": floor_contrast_dB - target_contrast_dB,
+            "target_off_norm": target_off_norm,
         },
         "thermal": {
             "delta_n_kerr": delta_n_kerr,

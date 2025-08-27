@@ -165,6 +165,7 @@ def cascade(
     report: str = typer.Option("none", "--report", help="Report type: 'none' or 'power'"),
     # Power report parameters
     P_high_mW: float = typer.Option(1.0, "--P-high-mW", help="Logic-1 drive power [mW]"),
+    threshold_norm: float = typer.Option(0.5, "--threshold-norm", help="Normalized threshold [0..1]"),
     fanout: int = typer.Option(1, "--fanout", help="Fan-out per stage"),
     coupling_eta: float = typer.Option(0.8, "--coupling-eta", help="Coupling efficiency [0..1]"),
     link_length_um: float = typer.Option(
@@ -175,8 +176,9 @@ def cascade(
     auto_timing: bool = typer.Option(False, "--auto-timing", help="Derive timing from Q factor"),
     include_2pa: bool = typer.Option(False, "--include-2pa", help="Include two-photon absorption"),
     extinction_target_dB: float = typer.Option(
-        20.0, "--extinction-target-dB", help="Target extinction ratio [dB]"
+        21.0, "--extinction-target-dB", help="Target extinction ratio [dB]"
     ),
+    er_epsilon: float = typer.Option(1e-12, "--er-epsilon", help="Tolerance for ER boundary check"),
     L_eff_um: float = typer.Option(10.0, "--L-eff-um", help="Effective interaction length [um]"),
     # Output options
     save_primary: Optional[Path] = typer.Option(
@@ -269,7 +271,6 @@ def cascade(
             min_on_global = 1.0
 
         worst_off_norm = max_off_global / max(min_on_global, 1e-30)
-        threshold_norm = 0.5  # Default threshold
 
         # Build power analysis inputs
         pins = PowerInputs(
@@ -285,6 +286,7 @@ def cascade(
             threshold_norm=threshold_norm,
             worst_off_norm=worst_off_norm,
             extinction_target_dB=extinction_target_dB,
+            er_epsilon=er_epsilon,
             n2_m2_per_W=n2_resolved,
             Aeff_um2=Aeff_um2,
             dn_dT_per_K=(platform_obj.thermal.dn_dT_per_K if platform_obj else None),
