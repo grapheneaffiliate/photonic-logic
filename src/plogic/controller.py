@@ -281,13 +281,13 @@ class ExperimentController:
         - beta: slope parameter for soft threshold.
         """
         results = {}
-        
+
         # Physics-based power scaling
         # Scale control power based on material's n2 to maintain constant phase shift
         base_P_ctrl = 1e-3  # 1 mW baseline
         n2_reference = 1e-17  # Reference n2 value (m^2/W)
         n2_actual = self.device.n2 if self.device.n2 else n2_reference
-        
+
         # Power scales inversely with n2 to maintain constant XPM effect
         # Δφ = (2π/λ) * n2 * I * L, where I = P/A_eff
         # To keep Δφ constant: P ∝ 1/n2
@@ -313,7 +313,9 @@ class ExperimentController:
                 if logic == "AND":
                     # AND gate: signal passes only if both inputs are high
                     # Use control power to modulate transmission
-                    P_ctrl = in2 * base_P_ctrl * power_scale  # Control from second input with scaling
+                    P_ctrl = (
+                        in2 * base_P_ctrl * power_scale
+                    )  # Control from second input with scaling
                     signal = float(in1)  # Signal from first input
 
                     # Pass through stages
@@ -358,11 +360,7 @@ class ExperimentController:
                         P_ctrl = 0.0
 
                 outputs.append(signal)
-                output_details.append({
-                    "inputs": (in1, in2),
-                    "P_ctrl": P_ctrl,
-                    "signal": signal
-                })
+                output_details.append({"inputs": (in1, in2), "P_ctrl": P_ctrl, "signal": signal})
 
             # Apply thresholding
             thr = 0.5
@@ -374,7 +372,7 @@ class ExperimentController:
                     "min_contrast_dB": 10 * np.log10(max(outputs) / max(min(outputs), 1e-12)),
                     "power_scale_factor": power_scale,
                     "effective_P_ctrl_mW": base_P_ctrl * power_scale * 1e3,
-                    "details": output_details
+                    "details": output_details,
                 }
             else:
                 logic_out = [1 if o > thr else 0 for o in outputs]
@@ -384,7 +382,7 @@ class ExperimentController:
                     "min_contrast_dB": 10 * np.log10(max(outputs) / max(min(outputs), 1e-12)),
                     "power_scale_factor": power_scale,
                     "effective_P_ctrl_mW": base_P_ctrl * power_scale * 1e3,
-                    "details": output_details
+                    "details": output_details,
                 }
         return results
 

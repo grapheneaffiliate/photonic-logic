@@ -12,6 +12,7 @@ def save_json(data: Dict[str, Any], path: str | Path) -> None:
     with p.open("w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
+
 def _flatten_dict(d: Dict[str, Any], prefix: str = "") -> Iterable[Tuple[str, Any]]:
     for k, v in d.items():
         key = f"{prefix}{k}" if not prefix else f"{prefix}.{k}"
@@ -19,6 +20,7 @@ def _flatten_dict(d: Dict[str, Any], prefix: str = "") -> Iterable[Tuple[str, An
             yield from _flatten_dict(v, prefix=key)
         else:
             yield key, v
+
 
 def _flatten_with_gate_stats(report: Dict[str, Any]) -> Dict[str, Any]:
     flat = dict(_flatten_dict(report))
@@ -32,6 +34,7 @@ def _flatten_with_gate_stats(report: Dict[str, Any]) -> Dict[str, Any]:
     except Exception:
         pass
     return flat
+
 
 def save_csv(report: Dict[str, Any], path: str | Path) -> None:
     flat = _flatten_with_gate_stats(report)

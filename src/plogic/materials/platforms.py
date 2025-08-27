@@ -9,11 +9,13 @@ from typing import Dict, Optional
 C = 299_792_458.0  # m/s
 LN10 = math.log(10.0)
 
+
 def _dB_per_cm_to_alpha_m(loss_dB_per_cm: float) -> float:
     # Convert waveguide loss in dB/cm → Neper/m (power attenuation coeff alpha)
     # dB = 10*log10(Pout/Pin); alpha(Np/m) = (loss_dB_per_m) * ln(10)/10
     dB_per_m = loss_dB_per_cm * 100.0
     return dB_per_m * LN10 / 10.0
+
 
 @dataclass
 class Nonlinear:
@@ -23,6 +25,7 @@ class Nonlinear:
     group_index: float
     Aeff_um2_default: float
 
+
 @dataclass
 class Thermal:
     dn_dT_per_K: float
@@ -31,6 +34,7 @@ class Thermal:
     density_kg_m3: float
     tau_thermal_ns: float
 
+
 @dataclass
 class Fabrication:
     Q_max: float
@@ -38,10 +42,12 @@ class Fabrication:
     coupling_tolerance_nm: float
     resonance_tolerance_pm: float
 
+
 @dataclass
 class Flags:
     cmos_compatible: bool
     tpa_present_at_1550: bool
+
 
 @dataclass
 class Platform:
@@ -57,7 +63,9 @@ class Platform:
         """Power attenuation coefficient α [1/m] from dB/cm."""
         return _dB_per_cm_to_alpha_m(self.fabrication.loss_dB_per_cm)
 
-    def gamma_Winv_m(self, wavelength_nm: Optional[float] = None, Aeff_um2: Optional[float] = None) -> float:
+    def gamma_Winv_m(
+        self, wavelength_nm: Optional[float] = None, Aeff_um2: Optional[float] = None
+    ) -> float:
         """
         Nonlinear coefficient γ [1/(W·m)].
         If database provides γ in W^-1 km, convert; else compute via γ ≈ n2 * ω / (c * Aeff).
@@ -75,9 +83,12 @@ class Platform:
         if intrinsic_Q is None:
             return None
         if intrinsic_Q > self.fabrication.Q_max * 1.5:
-            return (f"Requested Q={intrinsic_Q:.2e} far exceeds platform Q_max={self.fabrication.Q_max:.2e}. "
-                    f"Expect yield issues or unrealistic assumptions.")
+            return (
+                f"Requested Q={intrinsic_Q:.2e} far exceeds platform Q_max={self.fabrication.Q_max:.2e}. "
+                f"Expect yield issues or unrealistic assumptions."
+            )
         return None
+
 
 class PlatformDB:
     def __init__(self, path: Optional[Path] = None) -> None:
@@ -94,21 +105,25 @@ class PlatformDB:
                 nonlinear=Nonlinear(**v["nonlinear"]),
                 thermal=Thermal(**v["thermal"]),
                 fabrication=Fabrication(**v["fabrication"]),
-                flags=Flags(**v["flags"])
+                flags=Flags(**v["flags"]),
             )
 
     def get(self, key: str) -> Platform:
         if key not in self._platforms:
-            raise KeyError(f"Unknown platform '{key}'. Available: {', '.join(self._platforms.keys())}")
+            raise KeyError(
+                f"Unknown platform '{key}'. Available: {', '.join(self._platforms.keys())}"
+            )
         return self._platforms[key]
 
     def keys(self):
         return list(self._platforms.keys())
 
+
 def compute_gamma_from_params(n2_m2_per_W: float, wavelength_nm: float, Aeff_um2: float) -> float:
     lam_m = wavelength_nm * 1e-9
     omega = 2.0 * math.pi * C / lam_m
     return n2_m2_per_W * omega / (C * (Aeff_um2 * 1e-12))
+
 
 def dB_contrast(on: float, off: float) -> float:
     if off <= 0.0:

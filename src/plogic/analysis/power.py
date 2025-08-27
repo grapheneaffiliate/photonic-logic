@@ -4,45 +4,50 @@ import math
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-H = 6.62607015e-34      # J·s
-C = 299_792_458.0       # m/s
+H = 6.62607015e-34  # J·s
+C = 299_792_458.0  # m/s
 LN10 = math.log(10.0)
+
 
 def dB_to_transmittance(dB: float) -> float:
     # Power ratio transmittance from dB (loss is negative dB)
     return 10.0 ** (-dB / 10.0)
+
 
 def loss_dBcm_to_alpha_m(loss_dB_cm: float) -> float:
     # Convert dB/cm (power) to Neper/m (alpha)
     dB_per_m = loss_dB_cm * 100.0
     return dB_per_m * LN10 / 10.0
 
+
 def photon_energy_J(wavelength_nm: float) -> float:
     lam_m = wavelength_nm * 1e-9
     return H * C / lam_m
+
 
 def omega_rad_s(wavelength_nm: float) -> float:
     lam_m = wavelength_nm * 1e-9
     return 2.0 * math.pi * C / lam_m
 
+
 @dataclass
 class PowerInputs:
     wavelength_nm: float
     platform_loss_dB_cm: float
-    coupling_eta: float                # [0..1], per hop
-    link_length_um: float              # per stage hop length
-    fanout: int                        # integer >= 1
+    coupling_eta: float  # [0..1], per hop
+    link_length_um: float  # per stage hop length
+    fanout: int  # integer >= 1
 
     # Switching timing
-    pulse_ns: Optional[float] = None   # explicit pulse width
+    pulse_ns: Optional[float] = None  # explicit pulse width
     bitrate_GHz: Optional[float] = None
     # Cavity
     q_factor: Optional[float] = None
 
     # Signal levels (physical scale)
-    P_high_mW: float = 1.0             # logic-1 drive power at source
-    threshold_norm: float = 0.5        # normalized threshold (0..1)
-    worst_off_norm: float = 0.01       # worst-case analog OFF (normalized to high=1)
+    P_high_mW: float = 1.0  # logic-1 drive power at source
+    threshold_norm: float = 0.5  # normalized threshold (0..1)
+    worst_off_norm: float = 0.01  # worst-case analog OFF (normalized to high=1)
     extinction_target_dB: float = 20.0
 
     # Nonlinear/geometry for thermal estimate
@@ -54,9 +59,10 @@ class PowerInputs:
 
     # Absorption models
     include_2pa: bool = False
-    beta_2pa_m_per_W: float = 0.0      # two-photon absorption coefficient (SI)
+    beta_2pa_m_per_W: float = 0.0  # two-photon absorption coefficient (SI)
     # If True, use AUTO timing (based on τ_ph); else explicit pulse_ns / bitrate
     auto_timing: bool = True
+
 
 @dataclass
 class PowerReport:
@@ -75,8 +81,8 @@ class PowerReport:
     # Thermal heuristic
     delta_n_kerr: Optional[float]
     delta_n_thermal: Optional[float]
-    thermal_ratio: Optional[float]        # Δn_th/Δn_Kerr
-    thermal_flag: Optional[str]           # "ok" | "caution" | "danger"
+    thermal_ratio: Optional[float]  # Δn_th/Δn_Kerr
+    thermal_flag: Optional[str]  # "ok" | "caution" | "danger"
 
     # Leakage/extinction
     worst_off_norm: float
@@ -85,6 +91,7 @@ class PowerReport:
 
     # Raw dictionary for JSON dump
     raw: Dict[str, Any]
+
 
 def compute_power_report(cfg: PowerInputs) -> PowerReport:
     # ---- timing / energies ----
@@ -98,7 +105,7 @@ def compute_power_report(cfg: PowerInputs) -> PowerReport:
         if tau_ph_ns is not None:
             t_switch_ns = 2.0 * tau_ph_ns
         elif cfg.bitrate_GHz:
-            t_switch_ns = 1000.0 / cfg.bitrate_GHz   # ns
+            t_switch_ns = 1000.0 / cfg.bitrate_GHz  # ns
         elif cfg.pulse_ns:
             t_switch_ns = cfg.pulse_ns
         else:
@@ -145,12 +152,14 @@ def compute_power_report(cfg: PowerInputs) -> PowerReport:
     # ---- leakage/extinction check ----
     # Required OFF <= ON / 10^(ER/10)
     target_off_norm = 1.0 / (10.0 ** (cfg.extinction_target_dB / 10.0))
-    meets_ext = (cfg.worst_off_norm <= target_off_norm)
+    meets_ext = cfg.worst_off_norm <= target_off_norm
 
     # ---- thermal heuristic (Δn_th vs Δn_Kerr) ----
     delta_n_kerr = delta_n_thermal = thermal_ratio = None
     thermal_flag = None
-    if all(v is not None for v in (cfg.n2_m2_per_W, cfg.Aeff_um2, cfg.dn_dT_per_K, cfg.tau_thermal_ns)):
+    if all(
+        v is not None for v in (cfg.n2_m2_per_W, cfg.Aeff_um2, cfg.dn_dT_per_K, cfg.tau_thermal_ns)
+    ):
         Aeff_m2 = cfg.Aeff_um2 * 1e-12
         I_W_m2 = P_high_W / max(Aeff_m2, 1e-30)
         delta_n_kerr = cfg.n2_m2_per_W * I_W_m2
@@ -161,7 +170,7 @@ def compute_power_report(cfg: PowerInputs) -> PowerReport:
         P_abs_W = P_high_W * (1.0 - math.exp(-alpha_m * L_eff_m))
         if cfg.include_2pa and cfg.beta_2pa_m_per_W > 0.0:
             # E_2PA ~ beta * I^2 * L_eff * t; map to average absorbed power during the window:
-            E_2PA_J = cfg.beta_2pa_m_per_W * (I_W_m2 ** 2) * L_eff_m * (t_switch_ns * 1e-9)
+            E_2PA_J = cfg.beta_2pa_m_per_W * (I_W_m2**2) * L_eff_m * (t_switch_ns * 1e-9)
             P_abs_W += E_2PA_J / max((t_switch_ns * 1e-9), 1e-30)
 
         # temperature rise proxy using thermal time constant only:
@@ -169,12 +178,14 @@ def compute_power_report(cfg: PowerInputs) -> PowerReport:
         # Use dimensionless drift proxy via τ_th: Δn_th ∝ (dn/dT) * (P_abs/P_high) * (t_switch/τ_th)
         # We compare relative magnitudes; no geometry is assumed beyond L_eff and Aeff.
         tau_th_s = cfg.tau_thermal_ns * 1e-9
-        drift_factor = (P_abs_W / max(P_high_W, 1e-30)) * (t_switch_ns * 1e-9 / max(tau_th_s, 1e-30))
+        drift_factor = (P_abs_W / max(P_high_W, 1e-30)) * (
+            t_switch_ns * 1e-9 / max(tau_th_s, 1e-30)
+        )
         # Scale to a small-signal equivalent by clamping drift_factor into [0, 10] to avoid runaway numerics
         drift_factor = max(0.0, min(drift_factor, 10.0))
         # Use a normalized ΔT* (geometry-free) and fold it into dn/dT
         delta_n_thermal = cfg.dn_dT_per_K * drift_factor
-        thermal_ratio = (delta_n_thermal / max(delta_n_kerr, 1e-30))
+        thermal_ratio = delta_n_thermal / max(delta_n_kerr, 1e-30)
 
         if thermal_ratio < 0.2:
             thermal_flag = "ok"
@@ -184,31 +195,25 @@ def compute_power_report(cfg: PowerInputs) -> PowerReport:
             thermal_flag = "danger"
 
     raw = {
-        "timing": {
-            "tau_ph_ns": tau_ph_ns,
-            "t_switch_ns": t_switch_ns
-        },
-        "energetics": {
-            "E_op_fJ": E_op_fJ,
-            "photons_per_op": photons
-        },
+        "timing": {"tau_ph_ns": tau_ph_ns, "t_switch_ns": t_switch_ns},
+        "energetics": {"E_op_fJ": E_op_fJ, "photons_per_op": photons},
         "cascade": {
             "per_stage_transmittance": T_stage,
             "P_threshold_mW": P_threshold_mW,
             "max_depth_meeting_thresh": k_max,
-            "fanout": cfg.fanout
+            "fanout": cfg.fanout,
         },
         "extinction": {
             "worst_off_norm": cfg.worst_off_norm,
             "extinction_target_dB": cfg.extinction_target_dB,
-            "meets_extinction": meets_ext
+            "meets_extinction": meets_ext,
         },
         "thermal": {
             "delta_n_kerr": delta_n_kerr,
             "delta_n_thermal": delta_n_thermal,
             "thermal_ratio": thermal_ratio,
-            "thermal_flag": thermal_flag
-        }
+            "thermal_flag": thermal_flag,
+        },
     }
 
     return PowerReport(
@@ -227,5 +232,5 @@ def compute_power_report(cfg: PowerInputs) -> PowerReport:
         worst_off_norm=cfg.worst_off_norm,
         extinction_target_dB=cfg.extinction_target_dB,
         meets_extinction=meets_ext,
-        raw=raw
+        raw=raw,
     )
