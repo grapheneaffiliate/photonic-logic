@@ -1,8 +1,10 @@
 from __future__ import annotations
-import json
+
 import csv
+import json
 from pathlib import Path
 from typing import Any, Dict, Iterable, Tuple
+
 
 def save_json(data: Dict[str, Any], path: str | Path) -> None:
     p = Path(path)

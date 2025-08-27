@@ -1,9 +1,10 @@
 from __future__ import annotations
+
 import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 C = 299_792_458.0  # m/s
 LN10 = math.log(10.0)

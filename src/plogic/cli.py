@@ -2,22 +2,21 @@ from __future__ import annotations
 
 import importlib.metadata
 import json
-import math
 from pathlib import Path
 from typing import List, Optional
 
 import pandas as pd
 import typer
 
+from .analysis import PowerInputs, compute_power_report
 from .controller import (
     ExperimentController,
     PhotonicMolecule,
     generate_design_report,
 )
-from .utils import soft_logic
 from .materials import PlatformDB
-from .analysis import PowerInputs, compute_power_report
-from .utils.io import save_json, save_csv
+from .utils import soft_logic
+from .utils.io import save_csv, save_json
 
 # Keep help string consistent with smoke test expectations
 app = typer.Typer(
@@ -360,6 +359,7 @@ def sweep(
     Run parameter sweeps across material platforms with power analysis.
     """
     import itertools
+
     from .materials import PlatformDB
     
     # Build parameter grid

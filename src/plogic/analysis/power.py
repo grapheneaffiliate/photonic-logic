@@ -1,7 +1,8 @@
 from __future__ import annotations
+
 import math
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 H = 6.62607015e-34      # J·s
 C = 299_792_458.0       # m/s
