@@ -281,41 +281,43 @@ class ExperimentController:
         - beta: slope parameter for soft threshold.
         """
         results = {}
-        
+
         # Physics-based power scaling
         # Scale control power based on material's n2 to maintain constant phase shift
         base_P_ctrl = 1e-3  # 1 mW baseline
         n2_reference = 1e-17  # Reference n2 value (m^2/W)
         n2_actual = self.device.n2 if self.device.n2 else n2_reference
-        
+
         # Power scales inversely with n2 to maintain constant XPM effect
         # Δφ = (2π/λ) * n2 * I * L, where I = P/A_eff
         # To keep Δφ constant: P ∝ 1/n2
         power_scale = n2_reference / n2_actual if n2_actual != 0 else 1.0
-        
+
         # Truth tables for each logic gate (for reference):
         # AND: [0, 0, 0, 1] - Only true when both inputs are 1
         # OR:  [0, 1, 1, 1] - True when at least one input is 1
         # XOR: [0, 1, 1, 0] - True when inputs are different
-        
+
         for logic in ["AND", "OR", "XOR"]:
             inputs = [(0, 0), (0, 1), (1, 0), (1, 1)]
             outputs = []
             output_details = []
-            
+
             for i, (in1, in2) in enumerate(inputs):
                 # Expected outputs for each logic gate:
                 # AND[i]: [0, 0, 0, 1][i]
                 # OR[i]:  [0, 1, 1, 1][i]
                 # XOR[i]: [0, 1, 1, 0][i]
-                
+
                 # Simulate photonic implementation with physics-based power scaling
                 if logic == "AND":
                     # AND gate: signal passes only if both inputs are high
                     # Use control power to modulate transmission
-                    P_ctrl = in2 * base_P_ctrl * power_scale  # Control from second input with scaling
+                    P_ctrl = (
+                        in2 * base_P_ctrl * power_scale
+                    )  # Control from second input with scaling
                     signal = float(in1)  # Signal from first input
-                    
+
                     # Pass through stages
                     for stage in range(n_stages):
                         resp = self.device.steady_state_response(
@@ -326,7 +328,7 @@ class ExperimentController:
                             signal *= float(resp["T_through"])
                         else:
                             signal *= 0.1  # Attenuate signal when not both high
-                            
+
                 elif logic == "OR":
                     # OR gate: signal passes if either input is high
                     if in1 == 1 or in2 == 1:
@@ -341,7 +343,7 @@ class ExperimentController:
                     else:
                         signal = 0.0
                         P_ctrl = 0.0
-                        
+
                 elif logic == "XOR":
                     # XOR gate: signal passes only if inputs are different
                     if in1 != in2:
@@ -356,14 +358,10 @@ class ExperimentController:
                     else:
                         signal = 0.0
                         P_ctrl = 0.0
-                
+
                 outputs.append(signal)
-                output_details.append({
-                    "inputs": (in1, in2),
-                    "P_ctrl": P_ctrl,
-                    "signal": signal
-                })
-            
+                output_details.append({"inputs": (in1, in2), "P_ctrl": P_ctrl, "signal": signal})
+
             # Apply thresholding
             thr = 0.5
             if (threshold_mode or "").lower() == "soft":
@@ -374,7 +372,7 @@ class ExperimentController:
                     "min_contrast_dB": 10 * np.log10(max(outputs) / max(min(outputs), 1e-12)),
                     "power_scale_factor": power_scale,
                     "effective_P_ctrl_mW": base_P_ctrl * power_scale * 1e3,
-                    "details": output_details
+                    "details": output_details,
                 }
             else:
                 logic_out = [1 if o > thr else 0 for o in outputs]
@@ -384,7 +382,7 @@ class ExperimentController:
                     "min_contrast_dB": 10 * np.log10(max(outputs) / max(min(outputs), 1e-12)),
                     "power_scale_factor": power_scale,
                     "effective_P_ctrl_mW": base_P_ctrl * power_scale * 1e3,
-                    "details": output_details
+                    "details": output_details,
                 }
         return results
 
@@ -407,7 +405,7 @@ def generate_design_report(
             > device.kappa_A / TWOPI,
             "XPM_sufficient": results.get("E90_pJ", float("inf")) < 5000,
             "contrast_adequate": results.get("contrast_dB", 0) > 15,
-        }
+        },
     }
     with open(filename, "w") as f:
         json.dump(report, f, indent=2)
