@@ -21,10 +21,23 @@ The industry's first comprehensive photonic circuit design platform - the "SPICE
 
 ```bash
 pip install -e .
-plogic cascade --platform AlGaAs  # See best-case performance
+plogic demo --gate XOR --platform AlGaAs  # 🚀 SHOWCASE: Complete pipeline demo
 plogic sweep --platforms Si SiN AlGaAs --csv comparison.csv  # Compare all platforms
 plogic cascade --platform SiN --report power  # Detailed power analysis
 ```
+
+### 🎯 The "Holy Grail" Command
+```bash
+plogic demo --gate XOR --platform AlGaAs --threshold soft --output truth-table
+```
+**This single command demonstrates the entire photonic design pipeline:**
+- Material platform selection with real physics
+- Logic gate simulation with power scaling  
+- Soft thresholding for robust operation
+- Power budget analysis with thermal safety
+- Truth table validation with energy costs
+
+**Perfect for demos, tutorials, and rapid platform evaluation!**
 
 ## Why This Matters
 

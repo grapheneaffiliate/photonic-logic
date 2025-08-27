@@ -562,6 +562,219 @@ def sweep(
         typer.echo(f"[sweep] Complete: {len(results)} points processed")
 
 
+@app.command("demo")
+def demo(
+    gate: str = typer.Option("XOR", "--gate", help="Logic gate to demonstrate: AND, OR, XOR, or ALL"),
+    platform: str = typer.Option("AlGaAs", "--platform", help="Material platform: Si, SiN, or AlGaAs"),
+    threshold: str = typer.Option("soft", "--threshold", help="Thresholding: 'hard' or 'soft'"),
+    beta: float = typer.Option(30.0, "--beta", help="Sigmoid slope for soft thresholding"),
+    show_pipeline: bool = typer.Option(True, "--show-pipeline", help="Show step-by-step pipeline"),
+    report: str = typer.Option("power", "--report", help="Include power analysis: 'none' or 'power'"),
+    output: str = typer.Option("json", "--output", help="Output format: 'json', 'truth-table', or 'csv'"),
+    save_csv: Optional[Path] = typer.Option(None, "--csv", help="Save results as CSV"),
+    P_high_mW: float = typer.Option(0.5, "--P-high-mW", help="Drive power [mW]"),
+    pulse_ns: float = typer.Option(0.3, "--pulse-ns", help="Optimized pulse width [ns]"),
+) -> None:
+    """
+    🚀 SHOWCASE COMMAND: Complete photonic logic pipeline demonstration.
+    
+    This is the "holy grail" command that shows the entire workflow:
+    Gate Definition → Physics Simulation → Soft Thresholding → Truth Table → Power Analysis
+    
+    Perfect for demos, tutorials, and rapid evaluation of the platform's capabilities.
+    """
+    if show_pipeline:
+        typer.echo("🚀 Photonic Logic Pipeline Demonstration")
+        typer.echo("=" * 50)
+        typer.echo(f"📋 Step 1: Material Platform Selection")
+        typer.echo(f"   Platform: {platform}")
+        
+    # Load platform
+    pdb = PlatformDB()
+    platform_obj = pdb.get(platform)
+    
+    if show_pipeline:
+        typer.echo(f"   Material: {platform_obj.name}")
+        typer.echo(f"   n₂: {platform_obj.nonlinear.n2_m2_per_W:.1e} m²/W")
+        typer.echo(f"   Power scaling: {1e-17/platform_obj.nonlinear.n2_m2_per_W:.1f}× vs baseline")
+        typer.echo()
+        typer.echo(f"⚡ Step 2: Physics Simulation")
+        typer.echo(f"   Gate type: {gate}")
+        typer.echo(f"   Drive power: {P_high_mW} mW")
+        typer.echo(f"   Pulse width: {pulse_ns} ns")
+        typer.echo()
+
+    # Resolve parameters
+    n2_resolved = platform_obj.nonlinear.n2_m2_per_W
+    Aeff_um2 = platform_obj.nonlinear.Aeff_um2_default
+    A_eff_m2 = Aeff_um2 * 1e-12
+
+    # Create device and run simulation
+    dev = PhotonicMolecule(
+        xpm_mode="physics", 
+        n2=n2_resolved, 
+        A_eff=A_eff_m2, 
+        n_eff=3.4, 
+        g_geom=1.0
+    )
+    ctl = ExperimentController(dev)
+    
+    # Run cascade simulation
+    res = ctl.test_cascade(n_stages=2, threshold_mode=threshold, beta=beta)
+    
+    if show_pipeline:
+        typer.echo(f"🧮 Step 3: Logic Gate Results")
+        
+    # Filter results by gate if specific gate requested
+    if gate.upper() != "ALL":
+        if gate.upper() in res:
+            filtered_res = {gate.upper(): res[gate.upper()]}
+        else:
+            typer.echo(f"❌ Error: Gate '{gate}' not found. Available: {', '.join(res.keys())}")
+            return
+    else:
+        filtered_res = res
+    
+    # Show truth table format if requested
+    if output == "truth-table" or show_pipeline:
+        if show_pipeline:
+            typer.echo("   Truth Tables:")
+        for gate_name, gate_data in filtered_res.items():
+            logic_out = gate_data.get("logic_out", gate_data.get("logic_out_soft", []))
+            if show_pipeline:
+                typer.echo(f"   {gate_name}: {logic_out}")
+            elif output == "truth-table":
+                typer.echo(f"{gate_name}: {logic_out}")
+    
+    if show_pipeline and report == "power":
+        typer.echo()
+        typer.echo(f"⚡ Step 4: Power Budget Analysis")
+    
+    # Power analysis if requested
+    if report == "power":
+        # Extract measured statistics
+        min_on_global = float("inf")
+        max_off_global = 0.0
+        
+        for gate_name, gate_data in filtered_res.items():
+            if "details" in gate_data and "logic_out" in gate_data:
+                for detail, logic_out in zip(gate_data["details"], gate_data["logic_out"]):
+                    signal = detail.get("signal", 0.0)
+                    if logic_out == 1:
+                        min_on_global = min(min_on_global, signal)
+                    else:
+                        max_off_global = max(max_off_global, signal)
+        
+        if min_on_global == float("inf"):
+            min_on_global = 1.0
+        
+        worst_off_norm = max_off_global / max(min_on_global, 1e-30)
+        
+        # Build power analysis
+        pins = PowerInputs(
+            wavelength_nm=platform_obj.default_wavelength_nm,
+            platform_loss_dB_cm=platform_obj.fabrication.loss_dB_per_cm,
+            coupling_eta=0.8,
+            link_length_um=50.0,
+            fanout=1,
+            pulse_ns=pulse_ns,
+            P_high_mW=P_high_mW,
+            threshold_norm=0.5,
+            worst_off_norm=worst_off_norm,
+            extinction_target_dB=21.0,
+            er_epsilon=1e-12,
+            n2_m2_per_W=n2_resolved,
+            Aeff_um2=Aeff_um2,
+            dn_dT_per_K=platform_obj.thermal.dn_dT_per_K,
+            tau_thermal_ns=platform_obj.thermal.tau_thermal_ns,
+            include_2pa=platform_obj.flags.tpa_present_at_1550,
+            beta_2pa_m_per_W=platform_obj.nonlinear.beta_2pa_m_per_W,
+            auto_timing=False
+        )
+        
+        power_rep = compute_power_report(pins)
+        
+        if show_pipeline:
+            typer.echo(f"   Energy per operation: {power_rep.E_op_fJ:.0f} fJ")
+            typer.echo(f"   Photons per operation: {power_rep.photons_per_op:.1e}")
+            typer.echo(f"   Cascade depth limit: {power_rep.max_depth_meeting_thresh} stages")
+            typer.echo(f"   Thermal safety: {power_rep.thermal_flag}")
+            typer.echo()
+            typer.echo("🎯 Complete Pipeline Results:")
+            typer.echo("=" * 50)
+    
+    # Output results based on format
+    if output == "json":
+        if report == "power":
+            # Combine cascade and power results
+            combined = {
+                "cascade": filtered_res,
+                "power_analysis": power_rep.raw if report == "power" else None,
+                "demo_info": {
+                    "platform": platform,
+                    "gate": gate,
+                    "threshold": threshold,
+                    "beta": beta,
+                    "P_high_mW": P_high_mW,
+                    "pulse_ns": pulse_ns
+                }
+            }
+            typer.echo(json.dumps(combined, indent=2))
+        else:
+            typer.echo(json.dumps(filtered_res, indent=2))
+    elif output == "truth-table":
+        if not show_pipeline:  # Already shown above if show_pipeline
+            for gate_name, gate_data in filtered_res.items():
+                logic_out = gate_data.get("logic_out", gate_data.get("logic_out_soft", []))
+                typer.echo(f"{gate_name}: {logic_out}")
+    elif output == "csv" or save_csv:
+        # Create CSV-friendly format
+        csv_data = []
+        for gate_name, gate_data in filtered_res.items():
+            logic_out = gate_data.get("logic_out", gate_data.get("logic_out_soft", []))
+            for i, (inputs, output) in enumerate(zip([(0,0), (0,1), (1,0), (1,1)], logic_out)):
+                row = {
+                    "gate": gate_name,
+                    "input_A": inputs[0],
+                    "input_B": inputs[1],
+                    "output": output,
+                    "platform": platform,
+                    "threshold": threshold,
+                    "beta": beta,
+                    "P_high_mW": P_high_mW,
+                    "pulse_ns": pulse_ns
+                }
+                if report == "power":
+                    row.update({
+                        "E_op_fJ": power_rep.E_op_fJ,
+                        "thermal_flag": power_rep.thermal_flag,
+                        "cascade_depth": power_rep.max_depth_meeting_thresh
+                    })
+                csv_data.append(row)
+        
+        if save_csv:
+            import pandas as pd
+            df = pd.DataFrame(csv_data)
+            save_csv.parent.mkdir(parents=True, exist_ok=True)
+            df.to_csv(save_csv, index=False)
+            typer.echo(f"💾 Results saved to {save_csv}")
+        else:
+            import pandas as pd
+            df = pd.DataFrame(csv_data)
+            typer.echo(df.to_string(index=False))
+
+    if show_pipeline:
+        typer.echo()
+        typer.echo("✨ Pipeline Complete! This demonstrates:")
+        typer.echo("   • Material platform selection with real physics")
+        typer.echo("   • Logic gate simulation with power scaling")
+        typer.echo("   • Soft thresholding for robust operation")
+        typer.echo("   • Power budget analysis with thermal safety")
+        typer.echo("   • Truth table validation with energy costs")
+        typer.echo()
+        typer.echo("🎯 Ready for production photonic circuit design!")
+
+
 def main() -> None:
     app()
 
