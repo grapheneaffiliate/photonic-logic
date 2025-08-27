@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.build/
+.dist/
+dist/
+build/
+.venv/
+.env/
+.ipynb_checkpoints/
+*.sqlite
+*.db
+*.DS_Store
+*.png
+
+# Outputs
+*.csv
+*.json
+!docs/**/*.json
+data/reports/**
+
+# Generated artifacts
+coverage.xml
+.coverage

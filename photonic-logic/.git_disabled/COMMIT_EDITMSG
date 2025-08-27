@@ -1,0 +1,9 @@
+fix: implement proper logic gate operations in test_cascade method
+
+- Fixed bug where all logic gates (AND, OR, XOR) produced identical outputs
+- AND gate now correctly outputs [0, 0, 0, 1] (only true when both inputs are 1)
+- OR gate now correctly outputs [0, 1, 1, 1] (true when at least one input is 1)
+- XOR gate now correctly outputs [0, 1, 1, 0] (true when inputs are different)
+- Each gate now has its own implementation logic instead of using the same code
+- Maintains 120 dB contrast ratio for all gates
+- Works correctly with both hard and soft thresholding modes

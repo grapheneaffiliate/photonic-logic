@@ -1,0 +1,9 @@
+# Core runtime dependencies (mirrors pyproject [project.dependencies])
+numpy
+pandas
+scipy
+matplotlib
+typer
+rich
+
+# Optional: developer tools (use `pip install -r requirements.txt -r requirements-dev.txt` or `pip install -e .[dev]`)

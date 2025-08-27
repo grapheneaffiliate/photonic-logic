@@ -1,0 +1,8 @@
+# pack-refs with: peeled fully-peeled sorted 
+62b8b57996577ac61e1a6b601e81464ee0960017 refs/remotes/origin/feat/cli-tests-ci-v2
+6f94c5187b91889396449c2462a6e18f12e95593 refs/remotes/origin/feat/typer-cli-and-tests
+05f618f00bf90c8c3f3802e8a3fa26f6d9924a3c refs/remotes/origin/feature/p0-p1-soft-xpm
+a442b7980b44babd97d52221c41f2609eea76235 refs/remotes/origin/fix/ci-and-dev-tooling
+ccb0d3e8d2cf9f7a2dcfec7b31b0ada09ba1fdf8 refs/remotes/origin/gh-pages
+b069b1b437dfcda59b5214a87fcdc132c2ae9add refs/remotes/origin/main
+67a0739d43e4dd53158a0da13d6c96b79d16c347 refs/remotes/origin/readme-update

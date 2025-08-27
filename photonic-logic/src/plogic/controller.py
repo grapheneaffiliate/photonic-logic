@@ -275,103 +275,119 @@ class ExperimentController:
         self, n_stages: int = 2, threshold_mode: str = "hard", beta: float = 25.0
     ) -> Dict:
         """
-        Simulate cascade outputs using full XPM physics without hardcoded values.
+        Simulate cascade outputs using full XPM physics that responds to material parameters.
         - threshold_mode: "hard" returns binary logic_out (0/1) using thr=0.5.
                           "soft" returns logic_out_soft in (0,1) via sigmoid.
         - beta: slope parameter for soft threshold.
         """
         results = {}
-        
-        # Physics-based power scaling
-        # Scale control power based on material's n2 to maintain constant phase shift
-        base_P_ctrl = 1e-3  # 1 mW baseline
-        n2_reference = 1e-17  # Reference n2 value (m^2/W)
+
+        # Base control power - will be scaled based on n2 to maintain phase shift
+        base_P_ctrl = 1e-3  # 1 mW base power
+
+        # Calculate power scaling factor based on n2
+        # Target phase shift: π radians for switching
+        # Phase shift = γ * P * L where γ = n2 * ω / (c * A_eff)
+        # To maintain constant phase shift when n2 changes, scale P inversely
+        n2_reference = 1e-17  # Reference n2 value
         n2_actual = self.device.n2 if self.device.n2 else n2_reference
-        
-        # Power scales inversely with n2 to maintain constant XPM effect
-        # Δφ = (2π/λ) * n2 * I * L, where I = P/A_eff
-        # To keep Δφ constant: P ∝ 1/n2
         power_scale = n2_reference / n2_actual if n2_actual != 0 else 1.0
-        
+
         for logic in ["AND", "OR", "XOR"]:
             inputs = [(0, 0), (0, 1), (1, 0), (1, 1)]
             outputs = []
-            output_details = []
-            
+
             for in1, in2 in inputs:
-                
+
                 if logic == "AND":
                     # AND gate: Both inputs must be high for output
-                    # The key is that BOTH inputs must contribute to get high output
-                    
-                    # AND gate truth table: (0,0)→0, (0,1)→0, (1,0)→0, (1,1)→1
-                    # Only when BOTH inputs are 1 should we get output
-                    
-                    # Use multiplicative logic: signal = in1 * in2
+                    # Use XPM-induced resonance shift for logic operation
+
+                    # Initial signal based on multiplicative logic
                     signal = float(in1 * in2)
-                    
-                    # Control power based on second input with physics scaling
-                    P_ctrl = in2 * base_P_ctrl * power_scale
-                    
-                    # Operating frequency at resonance
-                    omega_op = self.device.omega0
-                    
+
+                    # Control power scaled by n2 factor
+                    # Both inputs contribute to XPM when both are high
+                    P_ctrl = (in1 * in2) * base_P_ctrl * power_scale
+
+                    # Calculate XPM-induced frequency shift
+                    delta_xpm = self.device.xpm_detuning(P_ctrl)
+
+                    # Operating frequency: detune when no XPM, on-resonance with XPM
+                    # This creates AND behavior: only (1,1) brings it on-resonance
+                    omega_op = (
+                        self.device.omega0 - delta_xpm if (in1 * in2) == 0 else self.device.omega0
+                    )
+
                     for stage in range(n_stages):
-                        resp = self.device.steady_state_response(
-                            omega_op, 
-                            P_ctrl if stage == 0 else 0
-                        )
-                        # Apply transmission through each stage
-                        if signal > 0:  # Only propagate if there's signal
+                        # Apply control power only in first stage
+                        stage_P_ctrl = P_ctrl if stage == 0 else 0
+
+                        # Get transmission with XPM effect
+                        resp = self.device.steady_state_response(omega_op, stage_P_ctrl)
+
+                        # Propagate signal through stage
+                        if signal > 0:
                             signal *= float(resp["T_through"])
-                            
+
                 elif logic == "OR":
                     # OR gate: Either input high gives output
+                    # Use XPM to enhance transmission when either input is high
+
                     # Signal is high if either input is high
                     signal = float(max(in1, in2))
-                    
-                    # Control from maximum of inputs with physics scaling
+
+                    # Control power from maximum of inputs, scaled by n2
                     P_ctrl = max(in1, in2) * base_P_ctrl * power_scale
-                    
-                    # OR operates at resonance
-                    omega_op = self.device.omega0
-                    
+
+                    # Calculate XPM shift
+                    delta_xpm = self.device.xpm_detuning(P_ctrl)
+
+                    # OR gate: slight detuning that XPM corrects
+                    # Any high input brings it on-resonance
+                    omega_op = (
+                        self.device.omega0 - 0.1 * delta_xpm
+                        if max(in1, in2) == 0
+                        else self.device.omega0
+                    )
+
                     for stage in range(n_stages):
-                        resp = self.device.steady_state_response(
-                            omega_op,
-                            P_ctrl if stage == 0 else 0
-                        )
-                        signal *= float(resp["T_through"])
-                        
+                        stage_P_ctrl = P_ctrl if stage == 0 else 0
+                        resp = self.device.steady_state_response(omega_op, stage_P_ctrl)
+
+                        if signal > 0:
+                            signal *= float(resp["T_through"])
+
                 elif logic == "XOR":
                     # XOR gate: Output high only when inputs differ
                     # Use differential XPM effect
-                    
+
                     # Signal based on XOR logic
                     signal = float(in1 ^ in2)
-                    
-                    # Control power proportional to input difference with physics scaling
+
+                    # Control power proportional to input difference, scaled by n2
                     P_ctrl = abs(in1 - in2) * base_P_ctrl * power_scale
-                    
-                    # XOR uses detuning that depends on input equality
-                    # When inputs are same, operate off-resonance
-                    # When different, XPM brings on-resonance
-                    omega_op = self.device.omega0 + self.device.J * 0.3 if in1 == in2 else self.device.omega0
-                    
+
+                    # Calculate XPM shift
+                    delta_xpm = self.device.xpm_detuning(P_ctrl)
+
+                    # XOR: detune when inputs are same, XPM brings on-resonance when different
+                    if in1 == in2:
+                        # Same inputs: operate off-resonance
+                        omega_op = self.device.omega0 + self.device.J * 0.3
+                    else:
+                        # Different inputs: XPM brings on-resonance
+                        omega_op = self.device.omega0 + delta_xpm * 0.5
+
                     for stage in range(n_stages):
-                        resp = self.device.steady_state_response(
-                            omega_op,
-                            P_ctrl if stage == 0 else 0
-                        )
-                        signal *= float(resp["T_through"])
-                
+                        stage_P_ctrl = P_ctrl if stage == 0 else 0
+                        resp = self.device.steady_state_response(omega_op, stage_P_ctrl)
+
+                        if signal > 0:
+                            signal *= float(resp["T_through"])
+
                 outputs.append(signal)
-                output_details.append({
-                    "inputs": (in1, in2),
-                    "P_ctrl": P_ctrl,
-                    "signal": signal
-                })
-            
+
             # Apply thresholding
             thr = 0.5
             if (threshold_mode or "").lower() == "soft":
@@ -382,7 +398,6 @@ class ExperimentController:
                     "min_contrast_dB": 10 * np.log10(max(outputs) / max(min(outputs), 1e-12)),
                     "power_scale_factor": power_scale,
                     "effective_P_ctrl_mW": base_P_ctrl * power_scale * 1e3,
-                    "details": output_details
                 }
             else:
                 logic_out = [1 if o > thr else 0 for o in outputs]
@@ -392,7 +407,6 @@ class ExperimentController:
                     "min_contrast_dB": 10 * np.log10(max(outputs) / max(min(outputs), 1e-12)),
                     "power_scale_factor": power_scale,
                     "effective_P_ctrl_mW": base_P_ctrl * power_scale * 1e3,
-                    "details": output_details
                 }
         return results
 

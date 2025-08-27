@@ -1,0 +1,26 @@
+[1mdiff --git a/docker-compose.yml b/docker-compose.yml[m
+[1mindex daea3fd..29cdc46 100644[m
+[1m--- a/docker-compose.yml[m
+[1m+++ b/docker-compose.yml[m
+[36m@@ -87,17 +87,13 @@[m [mservices:[m
+       - redis_data:/data[m
+     restart: unless-stopped[m
+     healthcheck:[m
+[31m-      test: ["CMD", "redis-cli", "ping"][m
+[32m+[m[32m      test: ["CMD", "redis-cli", "-h", "127.0.0.1", "ping"][m
+       interval: 5s[m
+[31m-      timeout: 2s[m
+[31m-      retries: 10[m
+[31m-      start_period: 10s[m
+[32m+[m[32m      timeout: 5s[m
+[32m+[m[32m      retries: 20[m
+[32m+[m[32m      start_period: 30s[m
+     networks:[m
+       - mcp-network[m
+[31m-    security_opt:[m
+[31m-      - no-new-privileges:true[m
+[31m-    cap_drop:[m
+[31m-      - ALL[m
+ [m
+   prometheus:[m
+     image: prom/prometheus:latest[m
