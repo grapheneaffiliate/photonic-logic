@@ -304,10 +304,10 @@ class ExperimentController:
             inputs = [(0, 0), (0, 1), (1, 0), (1, 1)]
             outputs = []
             output_details = []
-            expected_outputs = truth_tables[logic]
+            # Expected outputs for this logic gate: truth_tables[logic]
             
             for i, (in1, in2) in enumerate(inputs):
-                # Expected output for this logic gate: expected_outputs[i]
+                # Expected output for this input combination: truth_tables[logic][i]
                 # This is for reference to verify correct logic implementation
                 
                 # Simulate photonic implementation with physics-based power scaling
