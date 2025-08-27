@@ -6,11 +6,16 @@ The industry's first comprehensive photonic circuit design platform - the "SPICE
 
 | Platform | Power Required | Energy/Op | Max Cascade | Thermal Safe | CMOS Compatible |
 |----------|---------------|-----------|-------------|--------------|-----------------|
-| AlGaAs   | 0.67× baseline| 100 fJ    | 8 stages    | <100 mW     | ❌              |
-| Silicon  | 2.2× baseline | 330 fJ    | 5 stages    | <10 mW      | ✅              |
+| AlGaAs   | 0.67× baseline| 100 fJ*   | 8 stages    | <100 mW     | ❌              |
+| Silicon  | 2.2× baseline | 330 fJ*   | 5 stages    | <10 mW      | ✅              |
 | SiN      | 42× baseline  | 500 fJ    | 3-6 stages  | <500 mW     | ✅              |
 
-*Baseline: 1 mW control power with n₂=1e-17 m²/W reference*
+*Baseline: AlGaAs at n₂=1.5e-17 m²/W requires 1 mW control power*  
+*\*With pulse optimization (0.3ns), default 1ns gives ~3× higher energy*
+
+**Why material selection matters:**
+- One AlGaAs gate: 0.67 mW
+- Same gate in SiN: 42 mW (**62× more power!**)
 
 ## Quick Start (30 Seconds)
 
@@ -158,6 +163,7 @@ plogic sweep --platforms SiN --beta 80 100 --coupling-eta 0.8 0.9 --csv optimiza
 ## Known Limitations
 
 **Current Constraints** (honest engineering assessment):
+- **AND gate logic**: Outputs [0,0,1,1] instead of [0,0,0,1] at cascade depths 3-4 (fix in progress)
 - **Cascade depth**: Limited by power decay and thermal effects (3-8 stages typical)
 - **Two-photon absorption**: Limits Silicon to <10 mW operation
 - **SiN power requirements**: 42× higher than AlGaAs due to weak Kerr effect
