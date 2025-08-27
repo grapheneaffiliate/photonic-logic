@@ -565,15 +565,15 @@ def sweep(
 @app.command("demo")
 def demo(
     gate: str = typer.Option("XOR", "--gate", help="Logic gate to demonstrate: AND, OR, XOR, or ALL"),
-    platform: str = typer.Option("SiN", "--platform", help="Material platform: Si, SiN, or AlGaAs"),
+    platform: str = typer.Option("AlGaAs", "--platform", help="Material platform: Si, SiN, or AlGaAs"),
     threshold: str = typer.Option("soft", "--threshold", help="Thresholding: 'hard' or 'soft'"),
     beta: float = typer.Option(30.0, "--beta", help="Sigmoid slope for soft thresholding"),
     show_pipeline: bool = typer.Option(True, "--show-pipeline", help="Show step-by-step pipeline"),
     report: str = typer.Option("power", "--report", help="Include power analysis: 'none' or 'power'"),
     output: str = typer.Option("json", "--output", help="Output format: 'json', 'truth-table', or 'csv'"),
     save_csv: Optional[Path] = typer.Option(None, "--csv", help="Save results as CSV"),
-    P_high_mW: float = typer.Option(0.5, "--P-high-mW", help="Drive power [mW]"),
-    pulse_ns: float = typer.Option(1.0, "--pulse-ns", help="Pulse width [ns]"),
+    P_high_mW: Optional[float] = typer.Option(None, "--P-high-mW", help="Drive power [mW] (auto-optimized per platform)"),
+    pulse_ns: Optional[float] = typer.Option(None, "--pulse-ns", help="Pulse width [ns] (auto-optimized per platform)"),
 ) -> None:
     """
     🚀 SHOWCASE COMMAND: Complete photonic logic pipeline demonstration.
@@ -593,15 +593,29 @@ def demo(
     pdb = PlatformDB()
     platform_obj = pdb.get(platform)
     
+    # Platform-specific optimal defaults
+    demo_defaults = {
+        'AlGaAs': {'P_high_mW': 0.1, 'pulse_ns': 0.3},  # 30 fJ, thermal ok
+        'Si': {'P_high_mW': 0.3, 'pulse_ns': 0.3},      # Avoid TPA
+        'SiN': {'P_high_mW': 0.5, 'pulse_ns': 1.0}      # Higher power OK
+    }
+    
+    # Use platform-optimized defaults if not specified
+    defaults = demo_defaults.get(platform, {'P_high_mW': 0.5, 'pulse_ns': 1.0})
+    P_high_mW_resolved = P_high_mW if P_high_mW is not None else defaults['P_high_mW']
+    pulse_ns_resolved = pulse_ns if pulse_ns is not None else defaults['pulse_ns']
+    
     if show_pipeline:
         typer.echo(f"   Material: {platform_obj.name}")
         typer.echo(f"   n₂: {platform_obj.nonlinear.n2_m2_per_W:.1e} m²/W")
         typer.echo(f"   Power scaling: {1e-17/platform_obj.nonlinear.n2_m2_per_W:.1f}× vs baseline")
+        if P_high_mW is None or pulse_ns is None:
+            typer.echo(f"   🎯 Using platform-optimized defaults for best performance")
         typer.echo()
         typer.echo(f"⚡ Step 2: Physics Simulation")
         typer.echo(f"   Gate type: {gate}")
-        typer.echo(f"   Drive power: {P_high_mW} mW")
-        typer.echo(f"   Pulse width: {pulse_ns} ns")
+        typer.echo(f"   Drive power: {P_high_mW_resolved} mW")
+        typer.echo(f"   Pulse width: {pulse_ns_resolved} ns")
         typer.echo()
 
     # Resolve parameters
@@ -677,8 +691,8 @@ def demo(
             coupling_eta=0.8,
             link_length_um=50.0,
             fanout=1,
-            pulse_ns=pulse_ns,
-            P_high_mW=P_high_mW,
+            pulse_ns=pulse_ns_resolved,
+            P_high_mW=P_high_mW_resolved,
             threshold_norm=0.5,
             worst_off_norm=worst_off_norm,
             extinction_target_dB=21.0,
