@@ -293,22 +293,21 @@ class ExperimentController:
         # To keep Δφ constant: P ∝ 1/n2
         power_scale = n2_reference / n2_actual if n2_actual != 0 else 1.0
         
-        # Define truth tables for each logic gate
-        truth_tables = {
-            "AND": [0, 0, 0, 1],  # Only true when both inputs are 1
-            "OR": [0, 1, 1, 1],   # True when at least one input is 1
-            "XOR": [0, 1, 1, 0],  # True when inputs are different
-        }
+        # Truth tables for each logic gate (for reference):
+        # AND: [0, 0, 0, 1] - Only true when both inputs are 1
+        # OR:  [0, 1, 1, 1] - True when at least one input is 1
+        # XOR: [0, 1, 1, 0] - True when inputs are different
         
         for logic in ["AND", "OR", "XOR"]:
             inputs = [(0, 0), (0, 1), (1, 0), (1, 1)]
             outputs = []
             output_details = []
-            # Expected outputs for this logic gate: truth_tables[logic]
             
             for i, (in1, in2) in enumerate(inputs):
-                # Expected output for this input combination: truth_tables[logic][i]
-                # This is for reference to verify correct logic implementation
+                # Expected outputs for each logic gate:
+                # AND[i]: [0, 0, 0, 1][i]
+                # OR[i]:  [0, 1, 1, 1][i]
+                # XOR[i]: [0, 1, 1, 0][i]
                 
                 # Simulate photonic implementation with physics-based power scaling
                 if logic == "AND":
