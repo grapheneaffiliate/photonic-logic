@@ -281,33 +281,33 @@ class ExperimentController:
         - beta: slope parameter for soft threshold.
         """
         results = {}
-        
+
         # Truth tables for each logic gate (for reference):
         # AND: [0, 0, 0, 1] - Only true when both inputs are 1
         # OR:  [0, 1, 1, 1] - True when at least one input is 1
         # XOR: [0, 1, 1, 0] - True when inputs are different
-        
+
         for logic in ["AND", "OR", "XOR"]:
             inputs = [(0, 0), (0, 1), (1, 0), (1, 1)]
             outputs = []
-            
+
             for i, (in1, in2) in enumerate(inputs):
                 # Expected outputs for each logic gate:
                 # AND[i]: [0, 0, 0, 1][i]
                 # OR[i]:  [0, 1, 1, 1][i]
                 # XOR[i]: [0, 1, 1, 0][i]
-                
+
                 # Simulate photonic implementation
                 # For AND: both signals need to pass through
                 # For OR: either signal can pass through
                 # For XOR: exclusive behavior needed
-                
+
                 if logic == "AND":
                     # AND gate: signal passes only if both inputs are high
                     # Use control power to modulate transmission
                     P_ctrl = in2 * 1e-3  # Control from second input
                     signal = float(in1)  # Signal from first input
-                    
+
                     # Pass through stages
                     for stage in range(n_stages):
                         resp = self.device.steady_state_response(
@@ -318,7 +318,7 @@ class ExperimentController:
                             signal *= float(resp["T_through"])
                         else:
                             signal *= 0.1  # Attenuate signal when not both high
-                            
+
                 elif logic == "OR":
                     # OR gate: signal passes if either input is high
                     if in1 == 1 or in2 == 1:
@@ -332,7 +332,7 @@ class ExperimentController:
                             signal *= float(resp["T_through"])
                     else:
                         signal = 0.0
-                        
+
                 elif logic == "XOR":
                     # XOR gate: signal passes only if inputs are different
                     if in1 != in2:
@@ -346,9 +346,9 @@ class ExperimentController:
                             signal *= float(resp["T_through"])
                     else:
                         signal = 0.0
-                
+
                 outputs.append(signal)
-            
+
             # Apply thresholding
             thr = 0.5
             if (threshold_mode or "").lower() == "soft":
