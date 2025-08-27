@@ -584,9 +584,9 @@ def demo(
     Perfect for demos, tutorials, and rapid evaluation of the platform's capabilities.
     """
     if show_pipeline:
-        typer.echo("🚀 Photonic Logic Pipeline Demonstration")
+        typer.echo("Photonic Logic Pipeline Demonstration")
         typer.echo("=" * 50)
-        typer.echo(f"📋 Step 1: Material Platform Selection")
+        typer.echo(f"Step 1: Material Platform Selection")
         typer.echo(f"   Platform: {platform}")
         
     # Load platform
@@ -610,9 +610,9 @@ def demo(
         typer.echo(f"   n₂: {platform_obj.nonlinear.n2_m2_per_W:.1e} m²/W")
         typer.echo(f"   Power scaling: {1e-17/platform_obj.nonlinear.n2_m2_per_W:.1f}× vs baseline")
         if P_high_mW is None or pulse_ns is None:
-            typer.echo(f"   🎯 Using platform-optimized defaults for best performance")
+            typer.echo(f"   Using platform-optimized defaults for best performance")
         typer.echo()
-        typer.echo(f"⚡ Step 2: Physics Simulation")
+        typer.echo(f"Step 2: Physics Simulation")
         typer.echo(f"   Gate type: {gate}")
         typer.echo(f"   Drive power: {P_high_mW_resolved} mW")
         typer.echo(f"   Pulse width: {pulse_ns_resolved} ns")
@@ -637,7 +637,7 @@ def demo(
     res = ctl.test_cascade(n_stages=2, threshold_mode=threshold, beta=beta)
     
     if show_pipeline:
-        typer.echo(f"🧮 Step 3: Logic Gate Results")
+        typer.echo(f"Step 3: Logic Gate Results")
         
     # Filter results by gate if specific gate requested
     if gate.upper() != "ALL":
