@@ -565,7 +565,7 @@ def sweep(
 @app.command("demo")
 def demo(
     gate: str = typer.Option("XOR", "--gate", help="Logic gate to demonstrate: AND, OR, XOR, or ALL"),
-    platform: str = typer.Option("AlGaAs", "--platform", help="Material platform: Si, SiN, or AlGaAs"),
+    platform: str = typer.Option("SiN", "--platform", help="Material platform: Si, SiN, or AlGaAs"),
     threshold: str = typer.Option("soft", "--threshold", help="Thresholding: 'hard' or 'soft'"),
     beta: float = typer.Option(30.0, "--beta", help="Sigmoid slope for soft thresholding"),
     show_pipeline: bool = typer.Option(True, "--show-pipeline", help="Show step-by-step pipeline"),
@@ -573,7 +573,7 @@ def demo(
     output: str = typer.Option("json", "--output", help="Output format: 'json', 'truth-table', or 'csv'"),
     save_csv: Optional[Path] = typer.Option(None, "--csv", help="Save results as CSV"),
     P_high_mW: float = typer.Option(0.5, "--P-high-mW", help="Drive power [mW]"),
-    pulse_ns: float = typer.Option(0.3, "--pulse-ns", help="Optimized pulse width [ns]"),
+    pulse_ns: float = typer.Option(1.0, "--pulse-ns", help="Pulse width [ns]"),
 ) -> None:
     """
     🚀 SHOWCASE COMMAND: Complete photonic logic pipeline demonstration.

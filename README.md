@@ -6,29 +6,30 @@ The industry's first comprehensive photonic circuit design platform - the "SPICE
 
 | Platform | Power Required | Energy/Op | Max Cascade | Thermal Safe | CMOS Compatible |
 |----------|---------------|-----------|-------------|--------------|-----------------|
-| AlGaAs   | 0.67× baseline| 100 fJ*   | 8 stages    | <100 mW     | ❌              |
+| AlGaAs   | 0.67× baseline| 100 fJ*   | 8 stages    | <1 mW**     | ❌              |
 | Silicon  | 2.2× baseline | 330 fJ*   | 5 stages    | <10 mW      | ✅              |
 | SiN      | 42× baseline  | 500 fJ    | 3-6 stages  | <500 mW     | ✅              |
 
 *Baseline: AlGaAs at n₂=1.5e-17 m²/W requires 1 mW control power*  
-*\*With pulse optimization (0.3ns), default 1ns gives ~3× higher energy*
+*\*With pulse optimization (0.3ns), default 1ns gives ~3× higher energy*  
+*\*\*AlGaAs has high thermal sensitivity (dn/dT=3e-4) despite strong Kerr effect*
 
 **Why material selection matters:**
-- One AlGaAs gate: 0.67 mW
-- Same gate in SiN: 42 mW (**62× more power!**)
+- One AlGaAs gate: 0.67 mW (but thermally limited)
+- Same gate in SiN: 42 mW (**62× more power, but thermally stable!**)
 
 ## Quick Start (30 Seconds)
 
 ```bash
 pip install -e .
-plogic demo --gate XOR --platform AlGaAs  # 🚀 SHOWCASE: Complete pipeline demo
+plogic demo --gate XOR --platform SiN  # 🚀 SHOWCASE: Complete pipeline demo
 plogic sweep --platforms Si SiN AlGaAs --csv comparison.csv  # Compare all platforms
 plogic cascade --platform SiN --report power  # Detailed power analysis
 ```
 
 ### 🎯 The "Holy Grail" Command
 ```bash
-plogic demo --gate XOR --platform AlGaAs --threshold soft --output truth-table
+plogic demo --gate XOR --platform SiN --threshold soft --output truth-table
 ```
 **This single command demonstrates the entire photonic design pipeline:**
 - Material platform selection with real physics
