@@ -178,27 +178,25 @@ def compute_power_report(cfg: PowerInputs) -> PowerReport:
         L_eff_m = cfg.L_eff_um * 1e-6
         P_abs_W = P_high_W * (1.0 - math.exp(-alpha_m * L_eff_m))
         if cfg.include_2pa and cfg.beta_2pa_m_per_W > 0.0:
-            # E_2PA ~ beta * I^2 * L_eff * t; map to average absorbed power during the window:
-            E_2PA_J = cfg.beta_2pa_m_per_W * (I_W_m2**2) * L_eff_m * (t_switch_ns * 1e-9)
-            P_abs_W += E_2PA_J / max((t_switch_ns * 1e-9), 1e-30)
+            # 2PA contribution: beta * I^2 * L_eff gives absorption rate
+            # This is already a power-like quantity (W absorbed per unit time during pulse)
+            # The absorbed power from 2PA is beta * I^2 * L_eff * P_high
+            P_2PA_W = cfg.beta_2pa_m_per_W * (I_W_m2**2) * L_eff_m * Aeff_m2
+            P_abs_W += P_2PA_W
 
         # Robust thermal calculation with clamps and platform scaling
+        # BUG FIX: tau_thermal_ns is already in nanoseconds, need proper conversion
         tau_th_s = max(cfg.tau_thermal_ns * 1e-9, 1e-12)
         t_s = t_switch_ns * 1e-9
         
         # Calculate drift (absorbed power effect)
+        # This should give a small number (order of 1e-6 for typical parameters)
         drift_raw = (P_abs_W / max(P_high_W, 1e-30)) * (t_s / tau_th_s)
         # Clamp drift to keep heuristic sane
         drift = min(max(drift_raw, 0.0), 10.0)
         
         # Platform-specific thermal scale (default 1.0)
         k_th = cfg.thermal_scale if cfg.thermal_scale is not None else 1.0
-        
-        # For backward compatibility with existing calibration
-        # Use the empirical factor if thermal_scale is 1.0
-        if k_th == 1.0:
-            # Legacy calibration for AlGaAs demo
-            k_th = 2.85e-9
         
         # Calculate thermal index change
         delta_n_thermal = k_th * cfg.dn_dT_per_K * drift

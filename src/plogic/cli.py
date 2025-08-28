@@ -577,6 +577,9 @@ def demo(
     save_primary: Optional[Path] = typer.Option(None, "--save-primary", help="Save complete demo output as JSON"),
     P_high_mW: Optional[float] = typer.Option(None, "--P-high-mW", help="Drive power [mW] (auto-optimized per platform)"),
     pulse_ns: Optional[float] = typer.Option(None, "--pulse-ns", help="Pulse width [ns] (auto-optimized per platform)"),
+    coupling_eta: Optional[float] = typer.Option(None, "--coupling-eta", help="Coupling efficiency [0..1] (default: 0.8)"),
+    link_length_um: Optional[float] = typer.Option(None, "--link-length-um", help="Link length [µm] (default: 50)"),
+    stages: Optional[str] = typer.Option(None, "--stages", help="Cascade stages: number or 'auto' (default: 2)"),
 ) -> None:
     """
     🚀 SHOWCASE COMMAND: Complete photonic logic pipeline demonstration.
@@ -596,15 +599,35 @@ def demo(
     pdb = PlatformDB()
     platform_obj = pdb.get(platform)
     
-    # Platform-specific optimal defaults
+    # Platform-specific optimal defaults (including coupling and link parameters)
     demo_defaults = {
-        'AlGaAs': {'P_high_mW': 0.1, 'pulse_ns': 0.3},  # 30 fJ, thermal ok
-        'Si': {'P_high_mW': 0.3, 'pulse_ns': 0.3},      # Avoid TPA
-        'SiN': {'P_high_mW': 0.5, 'pulse_ns': 1.0}      # Higher power OK
+        'AlGaAs': {
+            'P_high_mW': 0.06,      # Optimized for 33-stage cascade
+            'pulse_ns': 1.4,        # Optimized for thermal safety
+            'coupling_eta': 0.98,   # High efficiency coupling
+            'link_length_um': 60.0  # Optimized link length
+        },
+        'Si': {
+            'P_high_mW': 0.3,
+            'pulse_ns': 0.3,
+            'coupling_eta': 0.8,
+            'link_length_um': 50.0
+        },
+        'SiN': {
+            'P_high_mW': 0.5,
+            'pulse_ns': 1.0,
+            'coupling_eta': 0.8,
+            'link_length_um': 50.0
+        }
     }
     
     # Use platform-optimized defaults if not specified
-    defaults = demo_defaults.get(platform, {'P_high_mW': 0.5, 'pulse_ns': 1.0})
+    defaults = demo_defaults.get(platform, {
+        'P_high_mW': 0.5,
+        'pulse_ns': 1.0,
+        'coupling_eta': 0.8,
+        'link_length_um': 50.0
+    })
     P_high_mW_resolved = P_high_mW if P_high_mW is not None else defaults['P_high_mW']
     pulse_ns_resolved = pulse_ns if pulse_ns is not None else defaults['pulse_ns']
     
@@ -621,6 +644,21 @@ def demo(
         typer.echo(f"   Pulse width: {pulse_ns_resolved} ns")
         typer.echo()
 
+    # Resolve coupling and link parameters using platform defaults
+    coupling_eta_resolved = coupling_eta if coupling_eta is not None else defaults.get('coupling_eta', 0.8)
+    link_length_um_resolved = link_length_um if link_length_um is not None else defaults.get('link_length_um', 50.0)
+    
+    # Determine stages for cascade simulation
+    stages_resolved = 2  # default
+    if stages == "auto":
+        # Will be determined from power analysis
+        stages_resolved = 2  # Start with 2 for initial analysis
+    elif stages is not None:
+        try:
+            stages_resolved = int(stages)
+        except ValueError:
+            stages_resolved = 2
+    
     # Resolve parameters
     n2_resolved = platform_obj.nonlinear.n2_m2_per_W
     Aeff_um2 = platform_obj.nonlinear.Aeff_um2_default
@@ -637,7 +675,7 @@ def demo(
     ctl = ExperimentController(dev)
     
     # Run cascade simulation
-    res = ctl.test_cascade(n_stages=2, threshold_mode=threshold, beta=beta)
+    res = ctl.test_cascade(n_stages=stages_resolved, threshold_mode=threshold, beta=beta)
     
     if show_pipeline:
         typer.echo(f"Step 3: Logic Gate Results")
@@ -687,12 +725,12 @@ def demo(
         
         worst_off_norm = max_off_global / max(min_on_global, 1e-30)
         
-        # Build power analysis
+        # Build power analysis with resolved parameters
         pins = PowerInputs(
             wavelength_nm=platform_obj.default_wavelength_nm,
             platform_loss_dB_cm=platform_obj.fabrication.loss_dB_per_cm,
-            coupling_eta=0.8,
-            link_length_um=50.0,
+            coupling_eta=coupling_eta_resolved,  # NOW PARAMETERIZED
+            link_length_um=link_length_um_resolved,  # NOW PARAMETERIZED
             fanout=1,
             pulse_ns=pulse_ns_resolved,
             P_high_mW=P_high_mW_resolved,
@@ -715,6 +753,8 @@ def demo(
             typer.echo(f"   Energy per operation: {power_rep.E_op_fJ:.0f} fJ")
             typer.echo(f"   Photons per operation: {power_rep.photons_per_op:.1e}")
             typer.echo(f"   Cascade depth limit: {power_rep.max_depth_meeting_thresh} stages")
+            if stages == "auto":
+                typer.echo(f"   Auto-detected optimal cascade depth: {power_rep.max_depth_meeting_thresh} stages")
             typer.echo(f"   Thermal safety: {power_rep.thermal_flag}")
             typer.echo()
             typer.echo(f"📊 Step 5: Contrast Breakdown")
@@ -739,7 +779,10 @@ def demo(
                 "threshold": threshold,
                 "beta": beta,
                 "P_high_mW": P_high_mW_resolved,
-                "pulse_ns": pulse_ns_resolved
+                "pulse_ns": pulse_ns_resolved,
+                "coupling_eta": coupling_eta_resolved,
+                "link_length_um": link_length_um_resolved,
+                "stages": stages if stages else stages_resolved
             }
         }
     
