@@ -191,15 +191,17 @@ jobs:
       run: |
         mkdocs build --strict
     
-    - name: Deploy to GitHub Pages (main branch only)
-      if: github.ref == 'refs/heads/main'
-      run: |
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-        mkdocs gh-deploy --force
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # GitHub Pages deployment disabled - requires repository settings configuration
+    # To enable: Go to repository Settings > Pages > Source: Deploy from a branch > gh-pages
+    # - name: Deploy to GitHub Pages (main branch only)
+    #   if: github.ref == 'refs/heads/main'
+    #   run: |
+    #     git config --global user.name "github-actions[bot]"
+    #     git config --global user.email "github-actions[bot]@users.noreply.github.com"
+    #     git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+    #     mkdocs gh-deploy --force
+    #   env:
+    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   release:
     runs-on: ubuntu-latest
