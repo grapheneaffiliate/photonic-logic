@@ -73,9 +73,9 @@ plogic cascade --platform AlGaAs --fanout 4 --split-loss-db 0.3 --report power
 
 #### NEW: Hybrid Material Routing (v2.3)
 ```bash
-plogic cascade --hybrid --routing-fraction 0.7 --logic-material AlGaAs --routing-material SiN --report power
+plogic cascade --hybrid --routing-fraction 0.7 --report power
 ```
-**Shows optimal material switching: 30% logic in AlGaAs, 70% routing in low-loss SiN**
+**Shows optimal material switching: 30% logic in AlGaAs (default), 70% routing in low-loss SiN (default)**
 
 ## Why This Matters
 
@@ -163,10 +163,10 @@ plogic cascade --platform AlGaAs --fanout 4 --split-loss-db 0.5 --n-stages 8 --r
 
 ### NEW: Hybrid Long-Distance Router (v2.3)
 ```bash
-plogic cascade --hybrid --routing-fraction 0.8 --logic-material AlGaAs --routing-material SiN --report power
+plogic cascade --hybrid --routing-fraction 0.8 --report power
 ```
-- 20% AlGaAs for logic operations
-- 80% SiN for low-loss routing
+- 20% AlGaAs for logic operations (default)
+- 80% SiN for low-loss routing (default)
 - 10+ cascade stages possible
 - Balanced power and loss optimization
 
@@ -220,11 +220,11 @@ plogic cascade --platform Si --fanout 8 --n-stages 16 --report power
 # Default hybrid (AlGaAs/SiN)
 plogic cascade --hybrid --report power
 
-# Custom material combination
-plogic cascade --hybrid --logic-material Si --routing-material SiN --report power
-
-# Routing fraction control
+# Routing fraction control (adjusts balance between AlGaAs logic and SiN routing)
 plogic cascade --hybrid --routing-fraction 0.6 --report power
+
+# With fanout for parallel processing
+plogic cascade --hybrid --routing-fraction 0.7 --fanout 4 --report power
 ```
 
 ### Material Platform Integration
