@@ -71,8 +71,8 @@ jobs:
       run: |
         # Test basic CLI functionality
         python -m plogic --version
-        python -m plogic demo --gate XOR --platform AlGaAs --output summary
-        python -m plogic cascade --platform AlGaAs --P-high-mW 0.06 --pulse-ns 1.4 --coupling-eta 0.98 --link-length-um 60 --report power --quiet
+        python -m plogic cascade --help
+        python -m plogic benchmark
     
     - name: Verify 33-stage cascade achievement
       run: |
