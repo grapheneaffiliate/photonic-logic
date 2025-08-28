@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import List, Optional
 
+import numpy as np
 import pandas as pd
 import typer
 
@@ -144,6 +145,12 @@ def cascade(
     platform: Optional[str] = typer.Option(
         None, "--platform", help="Material platform: Si, SiN, or AlGaAs"
     ),
+    # Fanout configuration
+    fanout: int = typer.Option(1, "--fanout", help="Number of parallel outputs per gate (default=1)"),
+    split_loss_db: float = typer.Option(0.5, "--split-loss-db", help="Loss per split in dB (default=0.5)"),
+    # Hybrid platform configuration
+    hybrid: bool = typer.Option(False, "--hybrid", help="Enable hybrid AlGaAs/SiN platform"),
+    routing_fraction: float = typer.Option(0.5, "--routing-fraction", help="Fraction of path in SiN routing (0-1)"),
     # Physics parameter overrides (backward compatible)
     n2: Optional[float] = typer.Option(None, "--n2", help="Kerr coefficient n2 (m^2/W) override"),
     a_eff: float = typer.Option(
@@ -166,7 +173,6 @@ def cascade(
     # Power report parameters
     P_high_mW: float = typer.Option(1.0, "--P-high-mW", help="Logic-1 drive power [mW]"),
     threshold_norm: float = typer.Option(0.5, "--threshold-norm", help="Normalized threshold [0..1]"),
-    fanout: int = typer.Option(1, "--fanout", help="Fan-out per stage"),
     coupling_eta: float = typer.Option(0.8, "--coupling-eta", help="Coupling efficiency [0..1]"),
     link_length_um: float = typer.Option(
         50.0, "--link-length-um", help="Link length per stage [um]"
@@ -253,8 +259,27 @@ def cascade(
     )
     ctl = ExperimentController(dev)
 
-    # Run cascade simulation
-    res = ctl.test_cascade(n_stages=stages, threshold_mode=threshold, beta=beta)
+    # Show hybrid platform info if enabled
+    if hybrid and not quiet:
+        from .materials.hybrid import HybridPlatform
+        hybrid_platform = HybridPlatform(routing_fraction=routing_fraction)
+        typer.echo(f"[plogic] Using hybrid platform: {hybrid_platform.logic_material}/{hybrid_platform.routing_material}")
+        typer.echo(f"[plogic] Routing fraction: {routing_fraction:.1%} in {hybrid_platform.routing_material}")
+        typer.echo(f"[plogic] Effective loss: {hybrid_platform.get_effective_parameters()['effective_loss_db_cm']:.2f} dB/cm")
+    
+    # Run cascade simulation with fanout
+    res = ctl.test_cascade(
+        n_stages=stages, 
+        threshold_mode=threshold, 
+        beta=beta,
+        fanout=fanout,
+        split_loss_db=split_loss_db
+    )
+    
+    # Show fanout information if > 1
+    if fanout > 1 and not quiet:
+        typer.echo(f"[plogic] Fanout={fanout} with {split_loss_db} dB split loss")
+        typer.echo(f"[plogic] Effective cascade depth reduced to ~{stages//int(np.sqrt(fanout))} stages")
 
     # Extract measured statistics for power analysis
     if report == "power":
@@ -272,7 +297,11 @@ def cascade(
         worst_off_norm = stats["worst_off_norm"]
         
         if not quiet and extinction_mode == "idealized":
-            typer.echo("[plogic] Using idealized extinction mode (theoretical floor)")
+            typer.echo("⚠️  WARNING: Using idealized extinction mode - assumes theoretical perfection")
+            typer.echo("⚠️  This mode may significantly overestimate performance")
+            typer.echo("⚠️  Use --realistic-extinction for fabrication-ready assessments")
+        elif not quiet and extinction_mode == "realistic":
+            typer.echo("[plogic] Using realistic extinction mode (measured statistics)")
 
         # Build power analysis inputs
         pins = PowerInputs(

@@ -272,15 +272,27 @@ class ExperimentController:
         return P_high * pulse_duration
 
     def test_cascade(
-        self, n_stages: int = 2, threshold_mode: str = "hard", beta: float = 25.0
+        self, 
+        n_stages: int = 2, 
+        threshold_mode: str = "hard", 
+        beta: float = 25.0,
+        fanout: int = 1,
+        split_loss_db: float = 0.5
     ) -> Dict:
         """
         Simulate cascade outputs using full XPM physics with power scaling.
         - threshold_mode: "hard" returns binary logic_out (0/1) using thr=0.5.
                           "soft" returns logic_out_soft in (0,1) via sigmoid.
         - beta: slope parameter for soft threshold.
+        - fanout: number of parallel outputs per gate (default=1)
+        - split_loss_db: loss per split in dB (default=0.5 dB for realistic couplers)
         """
         results = {}
+        
+        # Calculate split efficiency for fanout>1
+        split_efficiency = 1.0
+        if fanout > 1:
+            split_efficiency = 10 ** (-split_loss_db / 10)  # Power efficiency per split
 
         # Physics-based power scaling
         # Scale control power based on material's n2 to maintain constant phase shift
@@ -359,8 +371,28 @@ class ExperimentController:
                         signal = 0.0
                         P_ctrl = 0.0
 
+                # Apply fanout splitting loss
+                if fanout > 1:
+                    signal *= (split_efficiency ** (fanout - 1))
+                
                 outputs.append(signal)
-                output_details.append({"inputs": (in1, in2), "P_ctrl": P_ctrl, "signal": signal})
+                output_details.append({
+                    "inputs": (in1, in2), 
+                    "P_ctrl": P_ctrl, 
+                    "signal": signal,
+                    "fanout": fanout
+                })
+
+            # Calculate fanout-adjusted metrics
+            base_energy_fJ = base_P_ctrl * power_scale * 10e-9 * 1e15  # 10ns pulse, convert to fJ
+            fanout_adjusted_energy_fJ = base_energy_fJ * fanout  # Total energy for parallel ops
+            
+            # Calculate effective cascade depth with fanout
+            if fanout > 1:
+                # Depth reduction approximation: depth ~ original_depth / sqrt(fanout)
+                effective_depth = max(1, int(n_stages / np.sqrt(fanout)))
+            else:
+                effective_depth = n_stages
 
             # Apply thresholding
             thr = 0.5
@@ -373,6 +405,12 @@ class ExperimentController:
                     "power_scale_factor": power_scale,
                     "effective_P_ctrl_mW": base_P_ctrl * power_scale * 1e3,
                     "details": output_details,
+                    "fanout": fanout,
+                    "split_loss_db": split_loss_db,
+                    "split_efficiency": split_efficiency,
+                    "base_energy_fJ": base_energy_fJ,
+                    "fanout_adjusted_energy_fJ": fanout_adjusted_energy_fJ,
+                    "effective_cascade_depth": effective_depth,
                 }
             else:
                 logic_out = [1 if o > thr else 0 for o in outputs]
@@ -383,6 +421,12 @@ class ExperimentController:
                     "power_scale_factor": power_scale,
                     "effective_P_ctrl_mW": base_P_ctrl * power_scale * 1e3,
                     "details": output_details,
+                    "fanout": fanout,
+                    "split_loss_db": split_loss_db,
+                    "split_efficiency": split_efficiency,
+                    "base_energy_fJ": base_energy_fJ,
+                    "fanout_adjusted_energy_fJ": fanout_adjusted_energy_fJ,
+                    "effective_cascade_depth": effective_depth,
                 }
         return results
 
