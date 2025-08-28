@@ -1,6 +1,26 @@
-# Programmable Photonic Logic (v2.2)
+# Programmable Photonic Logic (v2.3)
 
-The industry's first comprehensive photonic circuit design platform - the "SPICE for photonic logic." Transform from trial-and-error physics experiments to quantitative design with real material parameters, power budgets, and thermal analysis.
+The industry's first comprehensive photonic circuit design platform - the "SPICE for photonic logic." Transform from trial-and-error physics experiments to quantitative design with real material parameters, power budgets, thermal analysis, and now with **parallel fanout capabilities** and **hybrid material platforms**.
+
+## 🆕 What's New in v2.3
+
+### Fanout Parallelism
+- **Parallel processing**: Split signals to multiple gates with configurable loss
+- **Depth reduction**: Effective cascade depth ~depth/√fanout
+- **Energy scaling**: Total energy = E_op × fanout for parallel operations
+- **Configurable split loss**: Default 0.5 dB per split, adjustable via CLI
+
+### Hybrid Material Platforms
+- **AlGaAs/SiN integration**: Logic in AlGaAs (1.0 dB/cm), routing in SiN (0.1 dB/cm)
+- **Smart material switching**: Optimize power vs loss trade-offs
+- **Mode converter modeling**: 0.2 dB loss per transition, 0.95 coupling efficiency
+- **Configurable routing fraction**: Control material usage balance
+
+### Realistic vs Idealized Modes
+- **Realistic mode**: Use measured extinction ratios for fabrication
+- **Idealized mode**: Theoretical limits for research exploration
+- **CLI warnings**: Automatic alerts when using idealized assumptions
+- **Documentation**: Comprehensive guide in `docs/LIMITATIONS_AND_ROADMAP.md`
 
 ## Performance at a Glance
 
@@ -9,6 +29,7 @@ The industry's first comprehensive photonic circuit design platform - the "SPICE
 | AlGaAs   | 0.06 mW*      | 84 fJ**   | 33 stages***| <1 mW       | ❌              |
 | Silicon  | 2.2× baseline | 330 fJ    | 5 stages    | <10 mW      | ✅              |
 | SiN      | 42× baseline  | 500 fJ    | 3-6 stages  | <500 mW     | ✅              |
+| **Hybrid**| Variable     | Optimized | 10+ stages  | Balanced    | ✅              |
 
 *\*Optimized with η=0.98 coupling, 60µm links, 1.4ns pulses*  
 *\*\*Ultra-low energy with optimized parameters*  
@@ -17,38 +38,56 @@ The industry's first comprehensive photonic circuit design platform - the "SPICE
 **Why material selection matters:**
 - One AlGaAs gate: 0.67 mW (but thermally limited)
 - Same gate in SiN: 42 mW (**62× more power, but thermally stable!**)
+- Hybrid approach: Balance power and stability optimally
 
 ## Quick Start (30 Seconds)
 
 ```bash
 pip install -e .
-plogic demo --gate XOR --platform AlGaAs --P-high-mW 0.06 --pulse-ns 1.4 --coupling-eta 0.98 --link-length-um 60  # 🚀 OPTIMIZED: 33-stage cascade!
-plogic sweep --platforms Si SiN AlGaAs --csv comparison.csv  # Compare all platforms
-plogic cascade --platform SiN --report power  # Detailed power analysis
+
+# Basic optimized cascade
+plogic demo --gate XOR --platform AlGaAs --P-high-mW 0.06 --pulse-ns 1.4 --coupling-eta 0.98 --link-length-um 60
+
+# NEW: Fanout parallelism (v2.3)
+plogic cascade --platform AlGaAs --fanout 4 --split-loss-db 0.5 --report power
+
+# NEW: Hybrid platform (v2.3)
+plogic cascade --hybrid --routing-fraction 0.7 --report power
+
+# Platform comparison
+plogic sweep --platforms Si SiN AlGaAs --csv comparison.csv
 ```
 
-### 🎯 The "Holy Grail" Command
+### 🎯 The "Holy Grail" Commands
+
+#### Classic Single-Path Logic
 ```bash
 plogic demo --gate XOR --platform SiN --threshold soft --output truth-table
 ```
-**This single command demonstrates the entire photonic design pipeline:**
-- Material platform selection with real physics
-- Logic gate simulation with power scaling  
-- Soft thresholding for robust operation
-- Power budget analysis with thermal safety
-- Truth table validation with energy costs
 
-**Perfect for demos, tutorials, and rapid platform evaluation!**
+#### NEW: Parallel Fanout Logic (v2.3)
+```bash
+plogic cascade --platform AlGaAs --fanout 4 --split-loss-db 0.3 --report power
+```
+**Demonstrates parallel processing with 4× fanout, reducing effective depth by ~2×**
+
+#### NEW: Hybrid Material Routing (v2.3)
+```bash
+plogic cascade --hybrid --routing-fraction 0.7 --logic-material AlGaAs --routing-material SiN --report power
+```
+**Shows optimal material switching: 30% logic in AlGaAs, 70% routing in low-loss SiN**
 
 ## Why This Matters
 
-**The Gap**: Photonic logic research uses abstract physics models, but real devices need material-specific power budgets, thermal management, and fabrication constraints.
+**The Gap**: Photonic logic research uses abstract physics models, but real devices need material-specific power budgets, thermal management, fabrication constraints, and now **scalable architectures**.
 
 **The Solution**: This platform bridges theory to practice with:
 - ✅ **Real material parameters** (Si/SiN/AlGaAs from literature)
 - ✅ **Power budget analysis** (energy/op, thermal safety, cascade limits)
 - ✅ **Design space exploration** (parameter sweeps, optimization guidance)
 - ✅ **Fab-ready validation** (extinction ratios, thermal predictions)
+- 🆕 **Parallel architectures** (fanout splitting, depth reduction)
+- 🆕 **Hybrid platforms** (material switching for optimization)
 
 ## Installation
 
@@ -77,25 +116,30 @@ pip install -e .[dev]
 
 Understanding these parameters is essential for photonic circuit design:
 
+### Material Properties
 - **n₂ (Kerr coefficient)**: Determines power requirements via P ∝ 1/n₂
   - AlGaAs: 1.5e-17 m²/W (strong, low power)
   - Silicon: 4.5e-18 m²/W (moderate, CMOS compatible)
   - SiN: 2.4e-19 m²/W (weak, ultra-stable)
 
+### NEW: Fanout Parameters (v2.3)
+- **Fanout degree**: Number of parallel paths (1-8 typical)
+- **Split loss**: Power loss per split (0.3-1.0 dB typical)
+- **Split efficiency**: η_split = 10^(-split_loss_db/10)
+- **Effective depth**: depth_eff = max(1, int(n_stages / √fanout))
+
+### NEW: Hybrid Platform Parameters (v2.3)
+- **Logic material**: High nonlinearity for switching (AlGaAs default)
+- **Routing material**: Low loss for interconnects (SiN default)
+- **Routing fraction**: Percentage of path in routing material (0.0-1.0)
+- **Mode converter loss**: Loss at material interfaces (0.2 dB typical)
+- **Coupling efficiency**: Power transfer between materials (0.95 typical)
+
+### Performance Metrics
 - **Power scaling**: Relative power needed vs AlGaAs baseline
 - **Cascade depth**: Maximum stages before signal regeneration needed
 - **ER margin**: Extinction ratio safety margin for fabrication tolerances
 - **Thermal flag**: ok/caution/danger based on thermal vs Kerr effects
-
-### Thermal Model Notes
-
-Platform-specific thermal characteristics determine safe operating ranges:
-
-- **AlGaAs**: High efficiency but thermal-sensitive above 1 mW due to high dn/dT (3e-4)
-- **Silicon**: TPA heating limits operation above 10 mW, moderate thermal sensitivity
-- **SiN**: Thermally stable up to 500 mW due to weak nonlinearity and low dn/dT (2.5e-5)
-
-**Thermal Assessment**: The platform uses material-specific thresholds reflecting real semiconductor physics rather than universal limits.
 
 ## Real-World Design Examples
 
@@ -107,7 +151,24 @@ plogic cascade --platform AlGaAs --P-high-mW 0.06 --pulse-ns 1.4 --coupling-eta 
 - 84 fJ/operation
 - **33-stage cascade depth** (revolutionary improvement)
 - Thermal ratio: 0.45 (safe operation)
-- Perfect for dense photonic integration
+
+### NEW: Parallel Processing Network (v2.3)
+```bash
+plogic cascade --platform AlGaAs --fanout 4 --split-loss-db 0.5 --n-stages 8 --report power
+```
+- 4× parallel fanout
+- Effective depth: 4 stages (reduced from 8)
+- Total energy: 336 fJ (84 fJ × 4)
+- Enables complex parallel architectures
+
+### NEW: Hybrid Long-Distance Router (v2.3)
+```bash
+plogic cascade --hybrid --routing-fraction 0.8 --logic-material AlGaAs --routing-material SiN --report power
+```
+- 20% AlGaAs for logic operations
+- 80% SiN for low-loss routing
+- 10+ cascade stages possible
+- Balanced power and loss optimization
 
 ### CMOS-Compatible Router (Silicon)
 ```bash
@@ -130,14 +191,41 @@ plogic cascade --platform SiN --coupling-eta 0.9 --link-length-um 20 --report po
 # Platform comparison
 plogic sweep --platforms Si SiN AlGaAs --P-high-mW 0.5 1.0 --csv platform_comparison.csv
 
-# Cascade depth optimization
-plogic sweep --platforms SiN --coupling-eta 0.8 0.85 0.9 --link-length-um 20 50 100 --csv depth_optimization.csv
+# NEW: Fanout optimization (v2.3)
+plogic sweep --platforms AlGaAs --fanout 1 2 4 8 --split-loss-db 0.3 0.5 1.0 --csv fanout_analysis.csv
+
+# NEW: Hybrid routing optimization (v2.3)
+plogic sweep --hybrid --routing-fraction 0.3 0.5 0.7 0.9 --csv hybrid_optimization.csv
 
 # Energy scaling analysis
 plogic sweep --platforms Si --P-high-mW 0.3 0.5 0.8 --pulse-ns 0.2 0.5 1.0 --csv energy_scaling.csv
 ```
 
-## Enhanced CLI Features (v2.2+)
+## Enhanced CLI Features (v2.3+)
+
+### NEW: Fanout Control (v2.3)
+```bash
+# Basic fanout
+plogic cascade --platform AlGaAs --fanout 4 --report power
+
+# Custom split loss
+plogic cascade --platform SiN --fanout 2 --split-loss-db 0.3 --report power
+
+# Fanout with optimization
+plogic cascade --platform Si --fanout 8 --n-stages 16 --report power
+```
+
+### NEW: Hybrid Platform Control (v2.3)
+```bash
+# Default hybrid (AlGaAs/SiN)
+plogic cascade --hybrid --report power
+
+# Custom material combination
+plogic cascade --hybrid --logic-material Si --routing-material SiN --report power
+
+# Routing fraction control
+plogic cascade --hybrid --routing-fraction 0.6 --report power
+```
 
 ### Material Platform Integration
 ```bash
@@ -156,20 +244,11 @@ plogic cascade --platform Si --n2 3e-18 --q-factor 5e5
 # Comprehensive power reporting
 plogic cascade --platform SiN --report power --P-high-mW 0.5
 
-# Energy optimization
-plogic cascade --platform AlGaAs --pulse-ns 0.3 --report power
+# Energy optimization with fanout
+plogic cascade --platform AlGaAs --fanout 4 --pulse-ns 0.3 --report power
 
-# Thermal safety analysis
-plogic cascade --platform Si --include-2pa --P-high-mW 1.0 --report power
-```
-
-### Design Space Exploration
-```bash
-# Multi-platform sweep
-plogic sweep --platforms Si SiN AlGaAs --P-high-mW 0.5 1.0 --csv results.csv
-
-# Optimization campaigns
-plogic sweep --platforms SiN --beta 80 100 --coupling-eta 0.8 0.9 --csv optimization.csv
+# Thermal safety with hybrid
+plogic cascade --hybrid --P-high-mW 1.0 --report power
 ```
 
 ## Photonics vs Electronics Comparison
@@ -181,25 +260,33 @@ plogic sweep --platforms SiN --beta 80 100 --coupling-eta 0.8 0.9 --csv optimiza
 | Density | 100-1000 gates/mm² | 10M+ gates/mm² | Electronics wins |
 | Static Power | 0 W | μW-mW | **Photonics wins** |
 | Wavelength Mux | Yes | No | **Photonics unique** |
+| **Fanout** | 1-8 typical | Unlimited | Electronics mature |
+| **Routing Loss** | 0.1-1 dB/cm | ~0 | Electronics wins |
 | Thermal | Critical | Managed | Electronics mature |
 
-**Photonic Advantage**: Zero static power + wavelength multiplexing enable new architectures impossible in electronics.
+**Photonic Advantage**: Zero static power + wavelength multiplexing + now parallel fanout architectures enable new computing paradigms.
 
-## Known Limitations
+## Known Limitations & Roadmap
 
-**Current Constraints** (honest engineering assessment):
-- **AND gate logic**: Outputs [0,0,1,1] instead of [0,0,0,1] at cascade depths 3-4 (fix in progress)
-- **Cascade depth**: Limited by power decay and thermal effects (3-8 stages typical)
+### Current Constraints (honest engineering assessment):
+- **Idealized mode**: May overestimate performance - use realistic mode for fabrication
+- **Fanout limits**: Practical fanout limited to ~8 due to splitting losses
+- **Hybrid transitions**: Mode converter losses (0.2 dB) impact short links
+- **AND gate logic**: Outputs [0,0,1,1] instead of [0,0,0,1] at cascade depths 3-4
 - **Two-photon absorption**: Limits Silicon to <10 mW operation
-- **SiN power requirements**: 42× higher than AlGaAs due to weak Kerr effect
 - **Thermal management**: Critical above 100 mW/mm² for all platforms
-- **Fabrication tolerance**: ±50 pm wavelength precision required
 
-**Roadmap Items**:
+### Roadmap & Next Steps:
+- ✅ **Fanout >1 parallelism** (COMPLETED in v2.3)
+- ✅ **Hybrid material platforms** (COMPLETED in v2.3)
+- ✅ **Realistic/idealized modes** (COMPLETED in v2.3)
 - [ ] Enhanced thermal dynamics modeling
 - [ ] Fabrication tolerance Monte Carlo analysis
 - [ ] Integration with gdsfactory for layout generation
+- [ ] Wavelength division multiplexing (WDM) support
 - [ ] Quantum stretch goals (Rydberg EIT)
+
+See `docs/LIMITATIONS_AND_ROADMAP.md` for detailed technical discussion.
 
 ## Troubleshooting Guide
 
@@ -210,39 +297,39 @@ plogic sweep --platforms SiN --beta 80 100 --coupling-eta 0.8 0.9 --csv optimiza
 # Reduce drive power
 plogic cascade --platform Si --P-high-mW 0.5
 
-# Use shorter pulses
-plogic cascade --platform AlGaAs --pulse-ns 0.3
+# Use hybrid platform for better thermal management
+plogic cascade --hybrid --routing-fraction 0.7
 
 # Switch to thermally stable platform
 plogic cascade --platform SiN --report power
 ```
 
-### Poor extinction ratio
-**Problem**: `meets_extinction: false` or low contrast margin
+### Poor extinction ratio with fanout
+**Problem**: Signal degradation with high fanout
 **Solutions**:
 ```bash
-# Adjust threshold for better margins
-plogic cascade --platform SiN --threshold-norm 0.55
+# Reduce fanout degree
+plogic cascade --platform AlGaAs --fanout 2 --report power
 
-# Use steeper sigmoid
-plogic cascade --platform Si --beta 100
+# Optimize split loss
+plogic cascade --platform SiN --fanout 4 --split-loss-db 0.3
 
-# Check precise margins
-plogic cascade --platform AlGaAs --report power  # See contrast_breakdown
+# Use hybrid platform for better signal preservation
+plogic cascade --hybrid --fanout 4 --report power
 ```
 
 ### Limited cascade depth
 **Problem**: `max_depth_meeting_thresh` too low
 **Solutions**:
 ```bash
+# Use fanout to reduce effective depth
+plogic cascade --platform AlGaAs --fanout 4 --n-stages 8
+
+# Switch to hybrid platform
+plogic cascade --hybrid --routing-fraction 0.6
+
 # Improve coupling efficiency
-plogic cascade --platform SiN --coupling-eta 0.9
-
-# Reduce link lengths
-plogic cascade --platform Si --link-length-um 20
-
-# Increase drive power (if thermal allows)
-plogic cascade --platform SiN --P-high-mW 1.0
+plogic cascade --platform SiN --coupling-eta 0.95
 ```
 
 ## Advanced Features
@@ -250,14 +337,17 @@ plogic cascade --platform SiN --P-high-mW 1.0
 ### Power Budget Analysis
 The `--report power` flag provides comprehensive analysis:
 - **Energy per operation**: fJ calculations with photon counting
+- **Fanout energy scaling**: Total energy with parallel operations
+- **Hybrid loss analysis**: Material transition impacts
 - **Thermal safety**: ok/caution/danger flags based on physics
 - **Cascade limits**: Maximum stages before signal degrades
 - **Extinction validation**: Meets target ER requirements
-- **Contrast breakdown**: Engineering margins for fab validation
 
 ### Design Space Exploration
 Parameter sweeps enable rapid optimization:
-- **Platform comparison**: Quantitative Si vs SiN vs AlGaAs trade-offs
+- **Platform comparison**: Quantitative Si vs SiN vs AlGaAs vs Hybrid trade-offs
+- **Fanout optimization**: Parallelism vs energy trade-offs
+- **Hybrid tuning**: Logic/routing material balance
 - **Power optimization**: Energy scaling with drive power and timing
 - **Cascade analysis**: Depth limits vs coupling and link parameters
 
@@ -266,34 +356,39 @@ Parameter sweeps enable rapid optimization:
 - `--embed-report`: Single JSON artifact
 - `--quiet`: CI-friendly operation
 - `--csv`: Spreadsheet-ready export
+- `--fanout`: Easy parallel architecture exploration
+- `--hybrid`: Quick hybrid platform testing
 
-## What's New in v2.2 (Material Platform Integration)
+## What's New in v2.3 (Parallel & Hybrid Architectures)
 
-**Revolutionary Enhancement**: Transform from physics simulator to production design platform.
+**Game-Changing Enhancement**: From single-path to parallel architectures with hybrid material optimization.
 
-### Material Platform Database
-- **Si/SiN/AlGaAs**: Literature-backed parameters with validation
-- **Platform selection**: `--platform Si|SiN|AlGaAs`
-- **Parameter override**: Flags > platform > defaults hierarchy
+### Fanout Parallelism
+- **Configurable fanout**: 1-8 parallel paths with `--fanout`
+- **Split loss modeling**: Realistic power division with `--split-loss-db`
+- **Depth reduction**: Automatic calculation of effective cascade depth
+- **Energy scaling**: Proper accounting for parallel operation costs
 
-### Power Budget Analysis
-- **Energy calculations**: fJ per operation with photon counting
-- **Thermal analysis**: Physics-based safety flags
-- **Cascade depth**: Real power decay and fanout limits
-- **Measured statistics**: Uses actual ON/OFF levels, not assumptions
+### Hybrid Material Platforms
+- **AlGaAs/SiN default**: Optimized for logic vs routing trade-offs
+- **Custom combinations**: Any material pairing supported
+- **Mode converter modeling**: Realistic transition losses
+- **Routing fraction control**: Fine-tune material usage
 
-### Design Space Exploration
-- **Parameter sweeps**: Multi-platform grid exploration
-- **CSV export**: Consolidated data for analysis
-- **Parallel processing**: Scalable design space mapping
+### Enhanced Analysis
+- **Realistic vs idealized**: Clear distinction for fab vs research
+- **Comprehensive testing**: 26 new tests for fanout/hybrid features
+- **Example demonstrations**: Ready-to-run scripts in `examples/`
+- **Updated documentation**: Complete guide in `docs/LIMITATIONS_AND_ROADMAP.md`
 
 ## Contributing
 
 We welcome contributions! Priority areas:
+- **WDM support**: Wavelength division multiplexing
+- **Layout generation**: Integration with gdsfactory
 - **Material platforms**: New materials with literature citations
 - **Validation**: Power measurements from real devices
 - **Thermal models**: Improved heat dissipation analysis
-- **Bug fixes**: With comprehensive test coverage
 
 ## Citation
 
@@ -304,8 +399,9 @@ If you use this framework for research or commercial development, please cite:
   title = {Photonic Logic: A Practical Framework for All-Optical Computing},
   author = {Open Photonics Lab},
   year = {2024},
+  version = {2.3},
   url = {https://github.com/grapheneaffiliate/photonic-logic},
-  note = {Material platforms, power analysis, design space exploration}
+  note = {Parallel fanout, hybrid platforms, realistic/idealized modes}
 }
 ```
 
@@ -315,6 +411,6 @@ MIT License. See `LICENSE`.
 
 ---
 
-**Ready to revolutionize photonic circuit design?** This platform provides everything needed to go from concept to fab-ready validation. Start with the quick examples above, then explore the design space with parameter sweeps and power analysis.
+**Ready to revolutionize photonic circuit design?** Version 2.3 brings parallel architectures and hybrid material platforms to enable scalable photonic computing. Start with the quick examples above, explore fanout parallelism, and optimize with hybrid material routing.
 
-**The "SPICE for photonic logic" is here.** 🚀
+**The future of photonic computing is parallel and hybrid.** 🚀
