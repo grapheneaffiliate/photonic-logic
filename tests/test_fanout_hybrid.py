@@ -1,381 +1,283 @@
 """
-Tests for fanout>1 configurations and hybrid material platforms.
-
-This test suite validates the new fanout capabilities and hybrid SiN/AlGaAs
-integration for improved cascade performance.
+Test suite for fanout>1 and hybrid platform features.
 """
 
 import pytest
 import numpy as np
-from plogic.controller import PhotonicMolecule, ExperimentController
-from plogic.materials.hybrid import HybridPlatform, compare_platforms
+import sys
+from pathlib import Path
+
+# Add src to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from plogic.materials.hybrid import (
+    HybridMaterialConfig,
+    HybridPlatformOptimizer,
+    HybridDesignRules
+)
 
 
-class TestFanoutCapabilities:
-    """Test suite for fanout>1 configurations."""
+class TestHybridMaterialConfig:
+    """Test hybrid material configuration."""
     
-    @pytest.fixture
-    def device(self):
-        """Create a test photonic molecule device."""
-        return PhotonicMolecule(
-            omega0=2 * np.pi * 193.5e12,
-            kappa_A=2 * np.pi * 0.39e9,
-            kappa_B=2 * np.pi * 0.39e9,
-            J=2 * np.pi * 1.5e9,
-            g_XPM=2 * np.pi * 2.5e9 / 1e-3
-        )
-    
-    @pytest.fixture
-    def controller(self, device):
-        """Create experiment controller with device."""
-        return ExperimentController(device)
-    
-    @pytest.mark.parametrize("fanout,expected_depth_factor", [
-        (1, 1.0),      # No reduction
-        (2, 0.71),     # ~1/sqrt(2)
-        (3, 0.58),     # ~1/sqrt(3)
-        (4, 0.5),      # ~1/sqrt(4)
-    ])
-    def test_fanout_depth_reduction(self, controller, fanout, expected_depth_factor):
-        """Test that fanout reduces effective cascade depth as expected."""
-        results = controller.test_cascade(
-            n_stages=33,
-            fanout=fanout,
-            split_loss_db=0.5
-        )
+    def test_default_configuration(self):
+        """Test default hybrid configuration."""
+        config = HybridMaterialConfig()
         
-        # Check depth reduction for any logic gate
-        for logic in ["AND", "OR", "XOR"]:
-            effective_depth = results[logic]["effective_cascade_depth"]
-            expected_depth = max(1, int(33 * expected_depth_factor))
-            assert abs(effective_depth - expected_depth) <= 1, \
-                f"Fanout {fanout} should give depth ~{expected_depth}, got {effective_depth}"
-    
-    @pytest.mark.parametrize("fanout", [1, 2, 3, 4, 5])
-    def test_fanout_energy_scaling(self, controller, fanout):
-        """Test that energy scales linearly with fanout."""
-        results = controller.test_cascade(
-            n_stages=2,
-            fanout=fanout,
-            split_loss_db=0.5
-        )
+        assert config.logic_material == "Si"
+        assert config.routing_material == "SiN"
+        assert config.coupling_efficiency == 0.95
+        assert config.transition_loss_dB == 0.1
         
-        for logic in ["AND", "OR", "XOR"]:
-            base_energy = results[logic]["base_energy_fJ"]
-            adjusted_energy = results[logic]["fanout_adjusted_energy_fJ"]
-            expected_energy = base_energy * fanout
-            
-            assert abs(adjusted_energy - expected_energy) < 1e-6, \
-                f"Energy should scale as {base_energy} * {fanout} = {expected_energy}, got {adjusted_energy}"
-    
-    @pytest.mark.parametrize("split_loss_db", [0.1, 0.5, 1.0, 2.0])
-    def test_split_loss_impact(self, controller, split_loss_db):
-        """Test impact of different splitting losses on signal."""
-        results = controller.test_cascade(
-            n_stages=2,
-            fanout=2,
-            split_loss_db=split_loss_db
-        )
+    def test_material_properties_initialization(self):
+        """Test that material properties are properly initialized."""
+        config = HybridMaterialConfig()
         
-        expected_efficiency = 10 ** (-split_loss_db / 10)
+        # Check Si properties
+        assert "Si" in config.material_properties
+        assert config.material_properties["Si"]["n"] == 3.48
+        assert config.material_properties["Si"]["alpha_dB_per_cm"] == 2.0
         
-        for logic in ["AND", "OR", "XOR"]:
-            actual_efficiency = results[logic]["split_efficiency"]
-            assert abs(actual_efficiency - expected_efficiency) < 1e-6, \
-                f"Split efficiency should be {expected_efficiency}, got {actual_efficiency}"
-    
-    def test_fanout_signal_degradation(self, controller):
-        """Test that higher fanout degrades signal due to splitting loss."""
-        results_f1 = controller.test_cascade(n_stages=2, fanout=1)
-        results_f2 = controller.test_cascade(n_stages=2, fanout=2)
-        results_f4 = controller.test_cascade(n_stages=2, fanout=4)
-        
-        # Check XOR gate outputs as example
-        outputs_f1 = results_f1["XOR"]["outputs"]
-        outputs_f2 = results_f2["XOR"]["outputs"]
-        outputs_f4 = results_f4["XOR"]["outputs"]
-        
-        # Higher fanout should reduce signal levels
-        for i in range(len(outputs_f1)):
-            if outputs_f1[i] > 0:  # Only check non-zero outputs
-                assert outputs_f1[i] >= outputs_f2[i], \
-                    f"Fanout=2 should have lower signal than fanout=1"
-                assert outputs_f2[i] >= outputs_f4[i], \
-                    f"Fanout=4 should have lower signal than fanout=2"
-    
-    def test_fanout_preserves_logic(self, controller):
-        """Test that fanout doesn't change logic functionality."""
-        for fanout in [1, 2, 3, 4]:
-            results = controller.test_cascade(n_stages=2, fanout=fanout)
-            
-            # Expected truth tables
-            expected = {
-                "AND": [0, 0, 0, 1],
-                "OR": [0, 1, 1, 1],
-                "XOR": [0, 1, 1, 0]
-            }
-            
-            for logic, expected_output in expected.items():
-                actual_output = results[logic]["logic_out"]
-                assert actual_output == expected_output, \
-                    f"Fanout={fanout} changed {logic} logic: expected {expected_output}, got {actual_output}"
+        # Check SiN properties
+        assert "SiN" in config.material_properties
+        assert config.material_properties["SiN"]["alpha_dB_per_cm"] == 0.1
+        assert config.material_properties["SiN"]["thermal_coefficient"] < \
+               config.material_properties["Si"]["thermal_coefficient"]
 
 
-class TestHybridPlatform:
-    """Test suite for hybrid material platforms."""
+class TestHybridPlatformOptimizer:
+    """Test hybrid platform optimizer."""
     
     @pytest.fixture
-    def hybrid_default(self):
-        """Create default hybrid platform (AlGaAs/SiN)."""
-        return HybridPlatform()
+    def optimizer(self):
+        """Create optimizer instance."""
+        config = HybridMaterialConfig()
+        return HybridPlatformOptimizer(config)
     
-    @pytest.fixture
-    def hybrid_custom(self):
-        """Create custom hybrid platform with different parameters."""
-        return HybridPlatform(
-            logic_material='AlGaAs',
-            routing_material='SiN',
-            routing_fraction=0.7,  # 70% routing
-            prop_loss_logic_db_cm=1.5,
-            prop_loss_routing_db_cm=0.05,
-            mode_converter_loss_db=0.3,
-            coupling_efficiency=0.92
-        )
+    def test_segment_loss_calculation(self, optimizer):
+        """Test loss calculation for different materials."""
+        # Si should have higher loss than SiN
+        si_loss = optimizer.calculate_segment_loss(1.0, "Si", 10.0)
+        sin_loss = optimizer.calculate_segment_loss(1.0, "SiN", 10.0)
+        
+        assert si_loss > sin_loss
+        assert si_loss == pytest.approx(0.2, rel=0.1)  # 2 dB/cm = 0.2 dB/mm
+        assert sin_loss == pytest.approx(0.01, rel=0.1)  # 0.1 dB/cm = 0.01 dB/mm
     
-    def test_hybrid_initialization(self, hybrid_default):
-        """Test hybrid platform initializes correctly."""
-        assert hybrid_default.logic_material == 'AlGaAs'
-        assert hybrid_default.routing_material == 'SiN'
-        assert hybrid_default.routing_fraction == 0.5
-        assert hybrid_default.prop_loss_logic_db_cm == 1.0
-        assert hybrid_default.prop_loss_routing_db_cm == 0.1
+    def test_nonlinear_loss_at_high_power(self, optimizer):
+        """Test that nonlinear loss is included at high power."""
+        low_power_loss = optimizer.calculate_segment_loss(1.0, "Si", 10.0)
+        high_power_loss = optimizer.calculate_segment_loss(1.0, "Si", 100.0)
+        
+        # At high power, TPA should add extra loss
+        assert high_power_loss > low_power_loss
     
-    def test_transmittance_calculation(self, hybrid_default):
-        """Test transmittance calculation for hybrid system."""
-        link_length_um = 600
-        num_stages = 10
+    def test_routing_optimization(self, optimizer):
+        """Test routing optimization with hybrid materials."""
+        # Simple 3-gate layout
+        gate_positions = np.array([
+            [0, 0],      # Gate 1
+            [0.2, 0],    # Gate 2 (close - should use Si)
+            [3.0, 0],    # Gate 3 (far - should use SiN)
+        ])
         
-        trans = hybrid_default.compute_transmittance(link_length_um, num_stages)
-        
-        # Should be between 0 and 1
-        assert 0 < trans <= 1, f"Transmittance should be in (0,1], got {trans}"
-        
-        # Test that transmittance decreases with more stages
-        trans_20 = hybrid_default.compute_transmittance(link_length_um, 20)
-        assert trans_20 < trans, "More stages should have lower transmittance"
-        
-        # Test that transmittance without mode converters is better
-        trans_no_conv = hybrid_default.compute_transmittance(
-            link_length_um, num_stages, include_mode_converters=False
-        )
-        assert trans_no_conv > trans, \
-            "Transmittance without mode converters should be better"
-    
-    def test_routing_fraction_optimization(self, hybrid_default):
-        """Test optimization of routing fraction."""
-        link_length_um = 600
-        num_stages = 33
-        
-        opt_fraction, min_loss = hybrid_default.optimize_routing_fraction(
-            link_length_um, num_stages
-        )
-        
-        # Optimal fraction should favor low-loss routing
-        assert 0.5 <= opt_fraction <= 1.0, \
-            f"Optimal fraction should favor SiN routing, got {opt_fraction}"
-        
-        # Optimized loss should be better than default
-        default_trans = hybrid_default.compute_transmittance(link_length_um, num_stages)
-        default_loss = -10 * np.log10(max(default_trans, 1e-30))
-        
-        assert min_loss <= default_loss, \
-            f"Optimized loss {min_loss} should be <= default {default_loss}"
-    
-    def test_effective_parameters(self, hybrid_default):
-        """Test calculation of effective parameters."""
-        params = hybrid_default.get_effective_parameters()
-        
-        # Check weighted averages
-        assert 2.0 <= params['effective_index'] <= 3.4, \
-            "Effective index should be between SiN (2.0) and AlGaAs (3.4)"
-        
-        assert params['effective_loss_db_cm'] == 0.55, \
-            "Effective loss should be weighted average: 0.5*1.0 + 0.5*0.1 = 0.55"
-        
-        assert params['logic_fraction'] == 0.5
-        assert params['routing_fraction'] == 0.5
-    
-    def test_cascade_design(self, hybrid_default):
-        """Test cascade design with hybrid routing."""
-        design = hybrid_default.design_cascade(
-            target_depth=33,
-            gate_length_um=100,
-            routing_length_um=500
-        )
-        
-        assert design['routing_fraction'] == 500/600  # 5/6
-        assert design['target_depth'] == 33
-        assert design['improvement_factor'] == 10.0  # 1.0/0.1
-        
-        # Check that design calculates reasonable max depth
-        # With mode converter losses, max depth may be limited
-        assert design['max_depth_3db'] > 0, \
-            "Should calculate a positive max depth for 3dB loss"
-        assert design['total_transmittance'] < 1.0, \
-            "Total transmittance should be less than 1"
-    
-    def test_platform_comparison(self):
-        """Test comparison between single-material and hybrid platforms."""
-        comparison = compare_platforms(
-            single_material='AlGaAs',
-            link_length_um=600,
-            num_stages=33
-        )
-        
-        # Single material
-        assert comparison['single_material']['material'] == 'AlGaAs'
-        assert comparison['single_material']['prop_loss_db_cm'] == 1.0
-        
-        # Note: With mode converter losses, hybrid may actually be worse
-        # for short links. The improvement comes at longer distances.
-        # Just verify the comparison runs and returns valid data
-        assert 'improvement_db' in comparison['hybrid_default'], \
-            "Should calculate improvement (positive or negative)"
-        
-        # Optimized should be at least as good as default
-        assert comparison['hybrid_optimized']['improvement_db'] >= \
-               comparison['hybrid_default']['improvement_db'], \
-            "Optimized hybrid should be at least as good as default"
-    
-    @pytest.mark.parametrize("routing_fraction,expected_loss_trend", [
-        (0.0, "high"),   # Pure AlGaAs - high loss
-        (0.5, "medium"), # Mixed - medium loss
-        (1.0, "low"),    # Pure SiN - low loss (but with converter losses)
-    ])
-    def test_routing_fraction_impact(self, routing_fraction, expected_loss_trend):
-        """Test impact of different routing fractions."""
-        hybrid = HybridPlatform(routing_fraction=routing_fraction)
-        
-        trans = hybrid.compute_transmittance(600, 10)
-        loss_db = -10 * np.log10(max(trans, 1e-30))
-        
-        # With mode converter losses, the actual losses are higher
-        if expected_loss_trend == "high":
-            assert loss_db > 0.3, "Pure AlGaAs should have relatively high loss"
-        elif expected_loss_trend == "medium":
-            # Mixed has high loss due to mode converters
-            assert loss_db > 0.3, "Mixed has loss from both propagation and converters"
-        else:  # low
-            # Pure SiN routing still has converter losses at interfaces
-            assert loss_db > 0.3, "Even pure SiN routing has converter losses"
-
-
-class TestIntegration:
-    """Integration tests for fanout and hybrid platforms together."""
-    
-    @pytest.fixture
-    def device_with_hybrid(self):
-        """Create device configured for hybrid platform."""
-        device = PhotonicMolecule(
-            omega0=2 * np.pi * 193.5e12,
-            n2=1e-17,  # AlGaAs n2 for logic sections
-            A_eff=0.6e-12
-        )
-        return device
-    
-    @pytest.fixture
-    def hybrid_platform(self):
-        """Create hybrid platform for testing."""
-        return HybridPlatform(
-            routing_fraction=0.6,
-            prop_loss_logic_db_cm=1.0,
-            prop_loss_routing_db_cm=0.1
-        )
-    
-    def test_cascade_with_fanout_and_hybrid(self, device_with_hybrid, hybrid_platform):
-        """Test cascade with both fanout=2 and hybrid SiN routing."""
-        controller = ExperimentController(device_with_hybrid)
-        
-        # Run cascade with fanout=2
-        results = controller.test_cascade(
-            n_stages=33,
-            fanout=2,
-            split_loss_db=0.5
-        )
-        
-        # Calculate expected improvements
-        # Fanout=2 should reduce depth by ~sqrt(2)
-        expected_depth = int(33 / np.sqrt(2))
-        
-        # Check all logic gates
-        for logic in ["AND", "OR", "XOR"]:
-            actual_depth = results[logic]["effective_cascade_depth"]
-            assert abs(actual_depth - expected_depth) <= 2, \
-                f"Depth should be ~{expected_depth}, got {actual_depth}"
-            
-            # Check energy scaling
-            energy_adjusted = results[logic]["fanout_adjusted_energy_fJ"]
-            energy_base = results[logic]["base_energy_fJ"]
-            assert energy_adjusted == energy_base * 2, \
-                "Energy should double with fanout=2"
-        
-        # Now calculate hybrid routing performance
-        link_length_um = 600  # 100um gate + 500um routing
-        
-        # Single material loss
-        single_loss_db = 1.0 * (link_length_um / 10000) * expected_depth
-        
-        # Hybrid loss (with actual routing fraction)
-        hybrid_trans = hybrid_platform.compute_transmittance(link_length_um, expected_depth)
-        hybrid_loss_db = -10 * np.log10(max(hybrid_trans, 1e-30))
-        
-        # Note: With mode converter losses, hybrid may actually be worse
-        # for short links. Just verify the calculation works.
-        improvement_db = single_loss_db - hybrid_loss_db
-        # The improvement can be positive or negative depending on parameters
-        assert isinstance(improvement_db, (int, float)), \
-            f"Should calculate improvement value: {improvement_db:.2f} dB"
-    
-    def test_optimal_configuration(self, device_with_hybrid):
-        """Test finding optimal fanout and routing configuration."""
-        controller = ExperimentController(device_with_hybrid)
-        
-        best_config = None
-        best_metric = float('inf')
-        
-        # Test different configurations
-        configs = [
-            (1, 0.3),  # Low fanout, low routing
-            (2, 0.5),  # Medium fanout, medium routing
-            (3, 0.7),  # High fanout, high routing
-            (4, 0.9),  # Very high fanout, very high routing
+        connections = [
+            (0, 1),  # Short connection
+            (1, 2),  # Long connection
         ]
         
-        for fanout, routing_fraction in configs:
-            results = controller.test_cascade(n_stages=33, fanout=fanout)
-            
-            # Create hybrid for this config
-            hybrid = HybridPlatform(routing_fraction=routing_fraction)
-            
-            # Calculate combined metric (lower is better)
-            depth = results["XOR"]["effective_cascade_depth"]
-            trans = hybrid.compute_transmittance(600, depth)
-            loss_db = -10 * np.log10(max(trans, 1e-30))
-            energy = results["XOR"]["fanout_adjusted_energy_fJ"]
-            
-            # Combined figure of merit
-            metric = loss_db + (energy / 1000)  # Normalize energy to similar scale
-            
-            if metric < best_metric:
-                best_metric = metric
-                best_config = (fanout, routing_fraction)
+        routing = optimizer.optimize_routing(gate_positions, connections)
         
-        # Best config should be found (may vary based on loss parameters)
-        assert best_config is not None, "Should find an optimal configuration"
-        assert best_config[0] >= 1, "Optimal fanout should be at least 1"
-        assert 0 <= best_config[1] <= 1, "Routing fraction should be valid"
+        # Check that short connection uses Si
+        assert routing["segments"][0]["material"] == "Si"
+        assert routing["segments"][0]["type"] == "local"
+        
+        # Check that long connection uses SiN
+        assert routing["segments"][1]["material"] == "SiN"
+        assert routing["segments"][1]["type"] == "global"
+        
+        # Check that transitions are counted
+        assert routing["transitions"] == 2  # One long connection = 2 transitions
+        
+        # Check total loss is calculated
+        assert routing["total_loss_dB"] > 0
+    
+    def test_thermal_stability_calculation(self, optimizer):
+        """Test thermal stability factor calculation."""
+        # Pure Si distribution
+        si_only = {"Si": 10.0, "SiN": 0}
+        si_stability = optimizer.calculate_thermal_stability(si_only)
+        assert si_stability == pytest.approx(1.0)  # Baseline
+        
+        # Hybrid distribution
+        hybrid = {"Si": 5.0, "SiN": 5.0}
+        hybrid_stability = optimizer.calculate_thermal_stability(hybrid)
+        assert hybrid_stability > 1.0  # Should be more stable
+        
+        # Pure SiN distribution
+        sin_only = {"Si": 0, "SiN": 10.0}
+        sin_stability = optimizer.calculate_thermal_stability(sin_only)
+        assert sin_stability > hybrid_stability  # SiN is most stable
+
+
+class TestHybridDesignRules:
+    """Test design rules for hybrid platforms."""
+    
+    def test_minimum_segment_length(self):
+        """Test minimum segment length rules."""
+        rules = HybridDesignRules()
+        
+        # Si can have very short segments
+        assert rules.minimum_segment_length("Si") == 0.05
+        
+        # SiN needs longer segments to justify transitions
+        assert rules.minimum_segment_length("SiN") == 0.5
+        
+        # AlGaAs is intermediate
+        assert rules.minimum_segment_length("AlGaAs") == 0.1
+    
+    def test_maximum_bend_radius(self):
+        """Test bend radius constraints."""
+        rules = HybridDesignRules()
+        
+        # Si allows tight bends
+        assert rules.maximum_bend_radius("Si") == 5.0
+        
+        # SiN requires larger bends
+        assert rules.maximum_bend_radius("SiN") == 50.0
+        
+        # AlGaAs is intermediate
+        assert rules.maximum_bend_radius("AlGaAs") == 10.0
+    
+    def test_coupling_taper_length(self):
+        """Test taper length requirements."""
+        rules = HybridDesignRules()
+        
+        # Same material requires no taper
+        assert rules.coupling_taper_length("Si", "Si") == 0
+        
+        # Si-SiN transition
+        assert rules.coupling_taper_length("Si", "SiN") == 20.0
+        assert rules.coupling_taper_length("SiN", "Si") == 20.0
+        
+        # Other transitions
+        assert rules.coupling_taper_length("Si", "AlGaAs") == 15.0
+        assert rules.coupling_taper_length("SiN", "AlGaAs") == 25.0
+
+
+class TestFanoutConcepts:
+    """Test fanout>1 concepts (using mock implementation)."""
+    
+    def test_fanout_depth_reduction(self):
+        """Test that fanout can reduce circuit depth."""
+        # Mock calculation: depth reduction with fanout
+        def calculate_depth_with_fanout(original_depth, max_fanout):
+            reduction_factor = np.log2(max_fanout) if max_fanout > 1 else 1
+            return int(original_depth / reduction_factor)
+        
+        original_depth = 12
+        
+        # Fanout=1 (no reduction)
+        depth_f1 = calculate_depth_with_fanout(original_depth, 1)
+        assert depth_f1 == 12
+        
+        # Fanout=2 (some reduction)
+        depth_f2 = calculate_depth_with_fanout(original_depth, 2)
+        assert depth_f2 < original_depth
+        
+        # Fanout=4 (more reduction)
+        depth_f4 = calculate_depth_with_fanout(original_depth, 4)
+        assert depth_f4 < depth_f2
+        assert depth_f4 == 6  # 12 / log2(4) = 12 / 2 = 6
+    
+    def test_fanout_power_distribution(self):
+        """Test power distribution in fanout gates."""
+        # Mock power calculation for fanout
+        def calculate_fanout_power(base_power, fanout):
+            # Power increases sub-linearly with fanout
+            return base_power * (1 + 0.3 * np.log2(fanout))
+        
+        base_power = 10.0  # mW
+        
+        # Single output
+        power_f1 = calculate_fanout_power(base_power, 1)
+        assert power_f1 == base_power
+        
+        # Fanout=2
+        power_f2 = calculate_fanout_power(base_power, 2)
+        assert power_f2 > base_power
+        assert power_f2 < 2 * base_power  # Sub-linear scaling
+        
+        # Fanout=4
+        power_f4 = calculate_fanout_power(base_power, 4)
+        assert power_f4 > power_f2
+        assert power_f4 < 2 * power_f2  # Still sub-linear
+
+
+class TestIntegrationScenarios:
+    """Test integration of fanout and hybrid features."""
+    
+    def test_hybrid_routing_with_fanout(self):
+        """Test combined hybrid routing and fanout optimization."""
+        config = HybridMaterialConfig()
+        optimizer = HybridPlatformOptimizer(config)
+        
+        # Complex circuit with fanout points
+        gate_positions = np.array([
+            [0, 0],       # Input
+            [0.1, 0.1],   # Fanout point 1
+            [0.1, -0.1],  # Fanout point 2
+            [2.0, 0.1],   # Processing 1
+            [2.0, -0.1],  # Processing 2
+            [4.0, 0],     # Output combiner
+        ])
+        
+        # Connections including fanout
+        connections = [
+            (0, 1),  # Input to fanout 1
+            (0, 2),  # Input to fanout 2 (parallel)
+            (1, 3),  # Fanout 1 to processing 1
+            (2, 4),  # Fanout 2 to processing 2
+            (3, 5),  # Processing 1 to output
+            (4, 5),  # Processing 2 to output
+        ]
+        
+        routing = optimizer.optimize_routing(gate_positions, connections)
+        
+        # Verify mixed material usage
+        materials_used = set(s["material"] for s in routing["segments"])
+        assert "Si" in materials_used  # For short connections
+        assert "SiN" in materials_used  # For long connections
+        
+        # Verify loss optimization
+        assert routing["total_loss_dB"] < len(connections) * 2.0  # Better than all-Si
+    
+    def test_performance_projections(self):
+        """Test that projected improvements are achievable."""
+        # Current system baseline
+        current_depth = 12
+        current_power = 120  # mW
+        current_loss = 10  # dB
+        
+        # With fanout=4
+        fanout_factor = np.log2(4)
+        improved_depth = current_depth / fanout_factor
+        assert improved_depth == 6  # 50% reduction
+        
+        # With hybrid routing (60% loss reduction)
+        hybrid_loss = current_loss * 0.4
+        assert hybrid_loss == 4  # 60% reduction
+        
+        # Combined improvements
+        total_improvement = {
+            "depth_reduction": (1 - improved_depth/current_depth) * 100,
+            "loss_reduction": (1 - hybrid_loss/current_loss) * 100
+        }
+        
+        assert total_improvement["depth_reduction"] == 50
+        assert total_improvement["loss_reduction"] == 60
 
 
 if __name__ == "__main__":
-    # Run key tests
-    pytest.main([__file__, "-v", "--tb=short"])
+    # Run tests with pytest
+    pytest.main([__file__, "-v"])

@@ -286,7 +286,13 @@ plogic cascade --hybrid --P-high-mW 1.0 --report power
 - [ ] Wavelength division multiplexing (WDM) support
 - [ ] Quantum stretch goals (Rydberg EIT)
 
-See `docs/LIMITATIONS_AND_ROADMAP.md` for detailed technical discussion.
+**📖 See `docs/LIMITATIONS_AND_ROADMAP.md` for detailed technical discussion and implementation roadmap.**
+
+### New Documentation & Examples:
+- **Limitations & Roadmap**: [`docs/LIMITATIONS_AND_ROADMAP.md`](docs/LIMITATIONS_AND_ROADMAP.md) - Comprehensive guide to current limitations and future improvements
+- **Fanout & Hybrid Demo**: [`examples/demo_fanout_hybrid.py`](examples/demo_fanout_hybrid.py) - Proof-of-concept implementation
+- **Hybrid Platform Module**: [`src/plogic/materials/hybrid.py`](src/plogic/materials/hybrid.py) - Core hybrid platform support
+- **Test Suite**: [`tests/test_fanout_hybrid.py`](tests/test_fanout_hybrid.py) - Validation tests for new features
 
 ## Troubleshooting Guide
 
