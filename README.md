@@ -55,7 +55,7 @@ plogic cascade --platform AlGaAs --fanout 4 --split-loss-db 0.5 --report power
 plogic cascade --hybrid --routing-fraction 0.7 --report power
 
 # Platform comparison
-plogic sweep --platforms Si SiN AlGaAs --csv comparison.csv
+plogic sweep --platforms Si --platforms SiN --platforms AlGaAs --csv comparison.csv
 ```
 
 ### 🎯 The "Holy Grail" Commands
@@ -189,16 +189,16 @@ plogic cascade --platform SiN --coupling-eta 0.9 --link-length-um 20 --report po
 ### Design Space Exploration
 ```bash
 # Platform comparison
-plogic sweep --platforms Si SiN AlGaAs --P-high-mW 0.5 1.0 --csv platform_comparison.csv
+plogic sweep --platforms Si --platforms SiN --platforms AlGaAs --P-high-mW 0.5 --P-high-mW 1.0 --csv platform_comparison.csv
 
 # NEW: Fanout optimization (v2.3)
-plogic sweep --platforms AlGaAs --fanout 1 2 4 8 --split-loss-db 0.3 0.5 1.0 --csv fanout_analysis.csv
+plogic sweep --platforms AlGaAs --fanout 1 --fanout 2 --fanout 4 --fanout 8 --split-loss-db 0.3 --split-loss-db 0.5 --split-loss-db 1.0 --csv fanout_analysis.csv
 
 # NEW: Hybrid routing optimization (v2.3)
-plogic sweep --hybrid --routing-fraction 0.3 0.5 0.7 0.9 --csv hybrid_optimization.csv
+plogic sweep --platforms AlGaAs --routing-fraction 0.3 --routing-fraction 0.5 --routing-fraction 0.7 --routing-fraction 0.9 --csv hybrid_optimization.csv
 
 # Energy scaling analysis
-plogic sweep --platforms Si --P-high-mW 0.3 0.5 0.8 --pulse-ns 0.2 0.5 1.0 --csv energy_scaling.csv
+plogic sweep --platforms Si --P-high-mW 0.3 --P-high-mW 0.5 --P-high-mW 0.8 --pulse-ns 0.2 --pulse-ns 0.5 --pulse-ns 1.0 --csv energy_scaling.csv
 ```
 
 ## Enhanced CLI Features (v2.3+)
