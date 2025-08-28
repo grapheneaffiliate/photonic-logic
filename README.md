@@ -154,7 +154,7 @@ plogic cascade --platform AlGaAs --P-high-mW 0.06 --pulse-ns 1.4 --coupling-eta 
 
 ### NEW: Parallel Processing Network (v2.3)
 ```bash
-plogic cascade --platform AlGaAs --fanout 4 --split-loss-db 0.5 --n-stages 8 --report power
+plogic cascade --platform AlGaAs --fanout 4 --split-loss-db 0.5 --stages 8 --report power
 ```
 - 4× parallel fanout
 - Effective depth: 4 stages (reduced from 8)
@@ -212,7 +212,7 @@ plogic cascade --platform AlGaAs --fanout 4 --report power
 plogic cascade --platform SiN --fanout 2 --split-loss-db 0.3 --report power
 
 # Fanout with optimization
-plogic cascade --platform Si --fanout 8 --n-stages 16 --report power
+plogic cascade --platform Si --fanout 8 --stages 16 --report power
 ```
 
 ### NEW: Hybrid Platform Control (v2.3)
@@ -323,7 +323,7 @@ plogic cascade --hybrid --fanout 4 --report power
 **Solutions**:
 ```bash
 # Use fanout to reduce effective depth
-plogic cascade --platform AlGaAs --fanout 4 --n-stages 8
+plogic cascade --platform AlGaAs --fanout 4 --stages 8
 
 # Switch to hybrid platform
 plogic cascade --hybrid --routing-fraction 0.6
