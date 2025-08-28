@@ -1,0 +1,4 @@
+# file: C:\Users\atchi\AppData\Roaming\Python\Python311\site-packages\numpy\core\_asarray.py
+# hypothesis_version: 6.138.3
+
+['A', 'ALIGNED', 'C', 'CONTIGUOUS', 'C_CONTIGUOUS', 'E', 'ENSUREARRAY', 'F', 'FORTRAN', 'F_CONTIGUOUS', 'O', 'OWNDATA', 'W', 'WRITEABLE', 'numpy', 'require']

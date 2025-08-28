@@ -44,6 +44,10 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
       continue-on-error: true
     
+    - name: Format check (black)
+      run: black --check .
+      continue-on-error: true
+    
     - name: Type check with mypy
       run: |
         mypy src/plogic --ignore-missing-imports
@@ -51,7 +55,13 @@ jobs:
     
     - name: Test with pytest
       run: |
-        pytest tests/ -v --tb=short
+        pytest tests/ -v --tb=short --cov=plogic --cov-report=xml --maxfail=1 --cov-fail-under=23
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
     
     - name: Test thermal regression (critical)
       run: |

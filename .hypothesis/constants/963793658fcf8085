@@ -1,0 +1,4 @@
+# file: C:\Users\atchi\AppData\Roaming\Python\Python311\site-packages\opentelemetry\exporter\otlp\proto\http\trace_exporter\__init__.py
+# hypothesis_version: 6.138.3
+
+[408, 500, 599, 30000, '/', 'Content-Encoding', 'none', 'v1/traces', 'w']

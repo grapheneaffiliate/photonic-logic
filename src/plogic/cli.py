@@ -2,22 +2,20 @@ from __future__ import annotations
 
 import importlib.metadata
 import json
+import math
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
-import numpy as np
+import matplotlib.pyplot as plt
 import pandas as pd
 import typer
 
-from .analysis import PowerInputs, compute_power_report
 from .controller import (
     ExperimentController,
     PhotonicMolecule,
     generate_design_report,
 )
-from .materials import PlatformDB
-from .utils import soft_logic, extract_cascade_statistics, validate_extinction_mode_flags
-from .utils.io import save_csv, save_json, save_truth_table_csv
+from .utils.switching import sigmoid
 
 # Keep help string consistent with smoke test expectations
 app = typer.Typer(
@@ -53,29 +51,14 @@ def characterize(
         "--report",
         help="Output JSON report path",
     ),
-    threshold: str = typer.Option(
-        "hard", "--threshold", help="Thresholding mode: 'hard' or 'soft'"
-    ),
-    beta: float = typer.Option(25.0, "--beta", help="Sigmoid slope (soft mode)"),
-    xpm_mode: str = typer.Option(
-        "linear", "--xpm-mode", help="XPM model: 'linear' (default) or 'physics'"
-    ),
-    n2: Optional[float] = typer.Option(
-        None, "--n2", help="Kerr coefficient n2 (m^2/W) for physics XPM mode"
-    ),
-    a_eff: float = typer.Option(
-        0.6e-12, "--a-eff", help="Effective mode area A_eff (m^2) for physics mode"
-    ),
-    n_eff: float = typer.Option(3.4, "--n-eff", help="Effective index n_eff"),
-    g_geom: float = typer.Option(1.0, "--g-geom", help="Geometry scaling g_geom"),
 ) -> None:
     """
     Run default characterization and save report JSON.
     """
-    dev = PhotonicMolecule(xpm_mode=xpm_mode, n2=n2, A_eff=a_eff, n_eff=n_eff, g_geom=g_geom)
+    dev = PhotonicMolecule()
     ctl = ExperimentController(dev)
     ctl.run_full_characterization()
-    ctl.results["cascade"] = ctl.test_cascade(n_stages=stages, threshold_mode=threshold, beta=beta)
+    ctl.results["cascade"] = ctl.test_cascade(n_stages=stages)
     rep = generate_design_report(dev, ctl.results, filename=str(report))
     typer.echo(json.dumps(rep, indent=2))
     typer.echo(f"Saved report to {report}")
@@ -89,28 +72,13 @@ def truth_table(
         help="Control powers in W (repeat: --ctrl 0 --ctrl 0.001)",
     ),
     out: Path = typer.Option(Path("truth_table.csv"), "--out", help="Output CSV"),
-    threshold: str = typer.Option(
-        "hard", "--threshold", help="Thresholding mode: 'hard' or 'soft'"
-    ),
-    beta: float = typer.Option(25.0, "--beta", help="Sigmoid slope (soft mode)"),
-    xpm_mode: str = typer.Option(
-        "linear", "--xpm-mode", help="XPM model: 'linear' (default) or 'physics'"
-    ),
-    n2: Optional[float] = typer.Option(
-        None, "--n2", help="Kerr coefficient n2 (m^2/W) for physics XPM mode"
-    ),
-    a_eff: float = typer.Option(
-        0.6e-12, "--a-eff", help="Effective mode area A_eff (m^2) for physics mode"
-    ),
-    n_eff: float = typer.Option(3.4, "--n-eff", help="Effective index n_eff"),
-    g_geom: float = typer.Option(1.0, "--g-geom", help="Geometry scaling g_geom"),
 ) -> None:
     """
     Compute a truth table for control powers and write CSV.
     Column names: P_ctrl_W, T_through, T_drop, etc.
     """
     powers = [float(p) for p in (ctrl if ctrl else [0.0, 0.001, 0.002])]
-    dev = PhotonicMolecule(xpm_mode=xpm_mode, n2=n2, A_eff=a_eff, n_eff=n_eff, g_geom=g_geom)
+    dev = PhotonicMolecule()
     omega = dev.omega0
 
     rows = []
@@ -118,14 +86,6 @@ def truth_table(
         resp = dev.steady_state_response(omega, P)
         rows.append({"P_ctrl_W": P, **resp})
     df = pd.DataFrame(rows)
-    thr = 0.5
-    if (threshold or "").lower() == "soft":
-        df["logic_out_soft"] = df["T_through"].apply(
-            lambda v: float(soft_logic(float(v), thr, beta))
-        )
-    else:
-        df["logic_out"] = (df["T_through"] > thr).astype(int)
-
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out, index=False)
     typer.echo(f"Wrote {out}")
@@ -134,766 +94,89 @@ def truth_table(
 @app.command("cascade")
 def cascade(
     stages: int = typer.Option(2, "--stages", help="Number of cascaded stages"),
-    threshold: str = typer.Option(
-        "hard", "--threshold", help="Thresholding mode: 'hard' or 'soft'"
-    ),
-    beta: float = typer.Option(25.0, "--beta", help="Sigmoid slope (soft mode)"),
-    xpm_mode: str = typer.Option(
-        "physics", "--xpm-mode", help="XPM model: 'linear' or 'physics' (default)"
-    ),
-    # Material platform selection
-    platform: Optional[str] = typer.Option(
-        None, "--platform", help="Material platform: Si, SiN, or AlGaAs"
-    ),
-    # Fanout configuration
-    fanout: int = typer.Option(1, "--fanout", help="Number of parallel outputs per gate (default=1)"),
-    split_loss_db: float = typer.Option(0.5, "--split-loss-db", help="Loss per split in dB (default=0.5)"),
-    # Hybrid platform configuration
-    hybrid: bool = typer.Option(False, "--hybrid", help="Enable hybrid AlGaAs/SiN platform"),
-    routing_fraction: float = typer.Option(0.5, "--routing-fraction", help="Fraction of path in SiN routing (0-1)"),
-    # Physics parameter overrides (backward compatible)
-    n2: Optional[float] = typer.Option(None, "--n2", help="Kerr coefficient n2 (m^2/W) override"),
-    a_eff: float = typer.Option(
-        0.6e-12, "--a-eff", help="Effective mode area A_eff (m^2) for physics mode"
-    ),
-    n_eff: float = typer.Option(3.4, "--n-eff", help="Effective index n_eff"),
-    g_geom: float = typer.Option(1.0, "--g-geom", help="Geometry scaling g_geom"),
-    lambda_nm: Optional[float] = typer.Option(
-        None, "--lambda-nm", help="Operating wavelength [nm]"
-    ),
-    aeff_um2: Optional[float] = typer.Option(None, "--aeff-um2", help="Effective mode area [um^2]"),
-    q_factor: Optional[float] = typer.Option(
-        None, "--q-factor", help="Intrinsic cavity Q (override)"
-    ),
-    loss_dB_cm: Optional[float] = typer.Option(
-        None, "--loss-dB-cm", help="Waveguide loss [dB/cm] override"
-    ),
-    # Power reporting
-    report: str = typer.Option("none", "--report", help="Report type: 'none' or 'power'"),
-    # Power report parameters
-    P_high_mW: float = typer.Option(1.0, "--P-high-mW", help="Logic-1 drive power [mW]"),
-    threshold_norm: float = typer.Option(0.5, "--threshold-norm", help="Normalized threshold [0..1]"),
-    coupling_eta: float = typer.Option(0.8, "--coupling-eta", help="Coupling efficiency [0..1]"),
-    link_length_um: float = typer.Option(
-        50.0, "--link-length-um", help="Link length per stage [um]"
-    ),
-    pulse_ns: Optional[float] = typer.Option(None, "--pulse-ns", help="Pulse width [ns]"),
-    bitrate_GHz: Optional[float] = typer.Option(None, "--bitrate-GHz", help="Bit rate [GHz]"),
-    auto_timing: bool = typer.Option(False, "--auto-timing", help="Derive timing from Q factor"),
-    include_2pa: bool = typer.Option(False, "--include-2pa", help="Include two-photon absorption"),
-    extinction_target_dB: float = typer.Option(
-        21.0, "--extinction-target-dB", help="Target extinction ratio [dB]"
-    ),
-    er_epsilon: float = typer.Option(1e-12, "--er-epsilon", help="Tolerance for ER boundary check"),
-    thermal_scale: Optional[float] = typer.Option(None, "--thermal-scale", help="Platform-specific thermal multiplier (overrides DB)"),
-    L_eff_um: float = typer.Option(10.0, "--L-eff-um", help="Effective interaction length [um]"),
-    # Extinction ratio calculation mode
-    realistic_extinction: bool = typer.Option(True, "--realistic-extinction", help="Use measured statistics for engineering assessment (default)"),
-    idealized_extinction: bool = typer.Option(False, "--idealized-extinction", help="Use theoretical floor for presentation purposes"),
-    # Output options
-    save_primary: Optional[Path] = typer.Option(
-        None, "--save-primary", help="Save cascade JSON to file"
-    ),
-    save_report: Optional[Path] = typer.Option(
-        None, "--save-report", help="Save power report JSON to file"
-    ),
-    csv: Optional[Path] = typer.Option(None, "--csv", help="Save power report as CSV"),
-    embed_report: bool = typer.Option(
-        False, "--embed-report", help="Embed power report in cascade JSON"
-    ),
-    quiet: bool = typer.Option(False, "--quiet", help="Suppress stdout JSON"),
-    show_resolved: bool = typer.Option(False, "--show-resolved", help="Show resolved parameters"),
 ) -> None:
     """
-    Simulate cascade outputs with optional material platform and power analysis.
+    Simulate simple cascade outputs and print JSON.
     """
-    # Resolve platform parameters
-    platform_obj = None
-    if platform:
-        pdb = PlatformDB()
-        platform_obj = pdb.get(platform)
-        if not quiet:
-            typer.echo(f"[plogic] Using platform: {platform_obj.name} ({platform_obj.key})")
-
-    # Resolve parameters with precedence: flags > platform > defaults
-    wavelength_nm = lambda_nm or (platform_obj.default_wavelength_nm if platform_obj else 1550.0)
-    Aeff_um2 = aeff_um2 or (platform_obj.nonlinear.Aeff_um2_default if platform_obj else 0.6)
-    n2_resolved = (
-        n2 if n2 is not None else (platform_obj.nonlinear.n2_m2_per_W if platform_obj else 1e-17)
-    )
-    loss_dB_cm_resolved = (
-        loss_dB_cm
-        if loss_dB_cm is not None
-        else (platform_obj.fabrication.loss_dB_per_cm if platform_obj else 0.1)
-    )
-
-    # Convert units for PhotonicMolecule (expects m^2, not um^2)
-    A_eff_m2 = Aeff_um2 * 1e-12
-
-    # Validate Q factor if platform is specified
-    if platform_obj and q_factor:
-        warn = platform_obj.validate_reasonable_Q(q_factor)
-        if warn and not quiet:
-            typer.echo(f"[plogic][warn] {warn}")
-
-    # Show resolved parameters if requested
-    if show_resolved and not quiet:
-        resolved_params = {
-            "platform": platform,
-            "wavelength_nm": wavelength_nm,
-            "n2_m2_per_W": n2_resolved,
-            "A_eff_m2": A_eff_m2,
-            "Aeff_um2": Aeff_um2,
-            "loss_dB_cm": loss_dB_cm_resolved,
-            "q_factor": q_factor,
-            "xpm_mode": xpm_mode,
-            "threshold": threshold,
-            "beta": beta,
-        }
-        typer.echo("[plogic] Resolved parameters:")
-        typer.echo(json.dumps(resolved_params, indent=2))
-
-    # Create device with resolved parameters
-    dev = PhotonicMolecule(
-        xpm_mode=xpm_mode, n2=n2_resolved, A_eff=A_eff_m2, n_eff=n_eff, g_geom=g_geom
-    )
+    dev = PhotonicMolecule()
     ctl = ExperimentController(dev)
-
-    # Show hybrid platform info if enabled
-    if hybrid and not quiet:
-        from .materials.hybrid import HybridPlatform
-        hybrid_platform = HybridPlatform(routing_fraction=routing_fraction)
-        typer.echo(f"[plogic] Using hybrid platform: {hybrid_platform.logic_material}/{hybrid_platform.routing_material}")
-        typer.echo(f"[plogic] Routing fraction: {routing_fraction:.1%} in {hybrid_platform.routing_material}")
-        typer.echo(f"[plogic] Effective loss: {hybrid_platform.get_effective_parameters()['effective_loss_db_cm']:.2f} dB/cm")
-    
-    # Run cascade simulation with fanout
-    res = ctl.test_cascade(
-        n_stages=stages, 
-        threshold_mode=threshold, 
-        beta=beta,
-        fanout=fanout,
-        split_loss_db=split_loss_db
-    )
-    
-    # Show fanout information if > 1
-    if fanout > 1 and not quiet:
-        typer.echo(f"[plogic] Fanout={fanout} with {split_loss_db} dB split loss")
-        typer.echo(f"[plogic] Effective cascade depth reduced to ~{stages//int(np.sqrt(fanout))} stages")
-
-    # Extract measured statistics for power analysis
-    if report == "power":
-        # Validate and resolve extinction mode
-        try:
-            extinction_mode = validate_extinction_mode_flags(realistic_extinction, idealized_extinction)
-        except ValueError as e:
-            typer.echo(f"❌ Error: {e}")
-            return
-        
-        # Extract statistics using shared function
-        stats = extract_cascade_statistics(res, extinction_mode)
-        min_on_global = stats["min_on_level"]
-        max_off_global = stats["max_off_level"]
-        worst_off_norm = stats["worst_off_norm"]
-        
-        if not quiet and extinction_mode == "idealized":
-            typer.echo("⚠️  WARNING: Using idealized extinction mode - assumes theoretical perfection")
-            typer.echo("⚠️  This mode may significantly overestimate performance")
-            typer.echo("⚠️  Use --realistic-extinction for fabrication-ready assessments")
-        elif not quiet and extinction_mode == "realistic":
-            typer.echo("[plogic] Using realistic extinction mode (measured statistics)")
-
-        # Build power analysis inputs
-        pins = PowerInputs(
-            wavelength_nm=wavelength_nm,
-            platform_loss_dB_cm=loss_dB_cm_resolved,
-            coupling_eta=coupling_eta,
-            link_length_um=link_length_um,
-            fanout=fanout,
-            pulse_ns=pulse_ns,
-            bitrate_GHz=bitrate_GHz,
-            q_factor=q_factor,
-            P_high_mW=P_high_mW,
-            threshold_norm=threshold_norm,
-            worst_off_norm=worst_off_norm,
-            extinction_target_dB=extinction_target_dB,
-            er_epsilon=er_epsilon,
-            n2_m2_per_W=n2_resolved,
-            Aeff_um2=Aeff_um2,
-            dn_dT_per_K=(platform_obj.thermal.dn_dT_per_K if platform_obj else None),
-            tau_thermal_ns=(platform_obj.thermal.tau_thermal_ns if platform_obj else None),
-            thermal_scale=thermal_scale,
-            L_eff_um=L_eff_um,
-            include_2pa=include_2pa,
-            beta_2pa_m_per_W=(platform_obj.nonlinear.beta_2pa_m_per_W if platform_obj else 0.0),
-            auto_timing=auto_timing or (pulse_ns is None and bitrate_GHz is None),
-        )
-
-        power_rep = compute_power_report(pins)
-        power_rep.raw["stats"] = {
-            "min_on_level": min_on_global,
-            "max_off_level": max_off_global,
-            "worst_off_norm": worst_off_norm,
-            "threshold_norm": threshold_norm,
-        }
-
-    # Output logic
-    if embed_report and report == "power":
-        # Embed power report in cascade JSON
-        res.setdefault("analysis", {})["power"] = power_rep.raw
-        if not quiet:
-            typer.echo(json.dumps(res, indent=2))
-        if save_primary:
-            save_json(res, save_primary)
-        if save_report:
-            save_json(power_rep.raw, save_report)
-        if csv:
-            save_csv(power_rep.raw, csv)
-    else:
-        # Separate outputs (default behavior)
-        if not quiet:
-            typer.echo(json.dumps(res, indent=2))
-            if report == "power":
-                typer.echo(json.dumps(power_rep.raw, indent=2))
-
-        if save_primary:
-            save_json(res, save_primary)
-        if report == "power":
-            if save_report:
-                save_json(power_rep.raw, save_report)
-            if csv:
-                save_csv(power_rep.raw, csv)
+    res = ctl.test_cascade(n_stages=stages)
+    typer.echo(json.dumps(res, indent=2))
 
 
-@app.command("sweep")
-def sweep(
-    platforms: List[str] = typer.Option(
-        ["Si", "SiN", "AlGaAs"], "--platforms", help="Material platforms to sweep"
+@app.command("benchmark")
+def benchmark(
+    metric: str = typer.Option(
+        "switching-contrast",
+        "--metric",
+        help="Benchmark metric: 'switching-contrast' or 'cascade-stability'",
     ),
-    beta: List[float] = typer.Option([80.0], "--beta", help="Beta values to sweep"),
-    threshold: str = typer.Option("hard", "--threshold", help="Thresholding mode"),
-    xpm_mode: str = typer.Option("physics", "--xpm-mode", help="XPM model"),
-    P_high_mW: List[float] = typer.Option(
-        [0.3, 0.5, 1.0], "--P-high-mW", help="Drive powers [mW] to sweep"
-    ),
-    fanout: List[int] = typer.Option([1, 2], "--fanout", help="Fan-out values to sweep"),
-    coupling_eta: List[float] = typer.Option(
-        [0.8], "--coupling-eta", help="Coupling efficiency values"
-    ),
-    link_length_um: List[float] = typer.Option(
-        [50.0], "--link-length-um", help="Link lengths [um]"
-    ),
-    # Single-value parameters
-    lambda_nm: Optional[float] = typer.Option(
-        None, "--lambda-nm", help="Operating wavelength [nm]"
-    ),
-    aeff_um2: Optional[float] = typer.Option(None, "--aeff-um2", help="Effective mode area [um^2]"),
-    q_factor: Optional[float] = typer.Option(None, "--q-factor", help="Cavity Q factor"),
-    bitrate_GHz: Optional[float] = typer.Option(None, "--bitrate-GHz", help="Bit rate [GHz]"),
-    pulse_ns: Optional[float] = typer.Option(None, "--pulse-ns", help="Pulse width [ns]"),
-    auto_timing: bool = typer.Option(False, "--auto-timing", help="Auto-derive timing from Q"),
-    include_2pa: bool = typer.Option(False, "--include-2pa", help="Include two-photon absorption"),
-    n2: Optional[float] = typer.Option(None, "--n2", help="Override n2 value"),
-    loss_dB_cm: Optional[float] = typer.Option(None, "--loss-dB-cm", help="Override loss value"),
-    # Output options
-    outdir: Optional[Path] = typer.Option(
-        None, "--outdir", help="Directory for per-point JSON files"
-    ),
-    csv: Optional[Path] = typer.Option(None, "--csv", help="Consolidated CSV output"),
-    quiet: bool = typer.Option(False, "--quiet", help="Suppress progress output"),
-    show_config: bool = typer.Option(
-        False, "--show-config", help="Show sweep configuration and exit"
-    ),
-    # Parallel processing
-    parallel: bool = typer.Option(False, "--parallel", help="Run sweep in parallel"),
-    workers: int = typer.Option(0, "--workers", help="Number of workers (0=auto)"),
-    timeout: Optional[float] = typer.Option(None, "--timeout", help="Timeout per point [seconds]"),
+    stages: int = typer.Option(2, "--stages", help="Stages for cascade-stability"),
 ) -> None:
     """
-    Run parameter sweeps across material platforms with power analysis.
+    Run lightweight benchmarks and print a small JSON result.
+
+    - switching-contrast: approximate contrast (dB) between P_ctrl=0 and P_ctrl=1 mW at omega0
+    - cascade-stability: reports min_contrast_dB from test_cascade()
     """
-    import itertools
+    dev = PhotonicMolecule()
+    omega = dev.omega0
 
-    from .materials import PlatformDB
-
-    # Build parameter grid
-    axes = {
-        "platform": platforms,
-        "beta": beta,
-        "threshold": [threshold],
-        "xpm_mode": [xpm_mode],
-        "P_high_mW": P_high_mW,
-        "fanout": fanout,
-        "coupling_eta": coupling_eta,
-        "link_length_um": link_length_um,
-    }
-
-    # Add single-value parameters if specified
-    if lambda_nm is not None:
-        axes["lambda_nm"] = [lambda_nm]
-    if aeff_um2 is not None:
-        axes["aeff_um2"] = [aeff_um2]
-    if q_factor is not None:
-        axes["q_factor"] = [q_factor]
-    if bitrate_GHz is not None:
-        axes["bitrate_GHz"] = [bitrate_GHz]
-    if pulse_ns is not None:
-        axes["pulse_ns"] = [pulse_ns]
-    if auto_timing:
-        axes["auto_timing"] = [True]
-    if include_2pa:
-        axes["include_2pa"] = [True]
-    if n2 is not None:
-        axes["n2"] = [n2]
-    if loss_dB_cm is not None:
-        axes["loss_dB_cm"] = [loss_dB_cm]
-
-    # Generate all combinations
-    keys = sorted(axes.keys())
-    combinations = list(itertools.product(*(axes[k] for k in keys)))
-
-    if show_config:
-        config = [dict(zip(keys, combo)) for combo in combinations]
-        typer.echo(json.dumps(config, indent=2))
+    if metric == "switching-contrast":
+        r_off = dev.steady_state_response(omega, P_ctrl=0.0)
+        r_on = dev.steady_state_response(omega, P_ctrl=1e-3)  # 1 mW
+        t_off = max(min(float(r_off["T_through"]), 1.0), 1e-12)
+        t_on = max(min(float(r_on["T_through"]), 1.0), 1e-12)
+        # dB contrast between ON and OFF transmissions
+        contrast_db = 10.0 * math.log10(max(t_on, t_off) / max(min(t_on, t_off), 1e-12))
+        out = {"metric": metric, "contrast_dB": contrast_db}
+        typer.echo(json.dumps(out, indent=2))
         return
 
-    if not quiet:
-        typer.echo(f"[plogic] Running {len(combinations)} sweep points...")
+    if metric == "cascade-stability":
+        ctl = ExperimentController(dev)
+        res = ctl.test_cascade(n_stages=stages)
+        # Aggregate minimum across logic variants for a single scalar
+        mins = [res[k]["min_contrast_dB"] for k in res]
+        out = {"metric": metric, "stages": stages, "min_contrast_dB": min(mins) if mins else 0.0}
+        typer.echo(json.dumps(out, indent=2))
+        return
 
-    # Run sweep
-    pdb = PlatformDB()
-    results = []
-
-    for idx, combo in enumerate(combinations):
-        params = dict(zip(keys, combo))
-
-        try:
-            # Resolve platform parameters
-            platform_obj = pdb.get(params["platform"]) if params.get("platform") else None
-
-            # Resolve parameters with precedence
-            wavelength_nm_resolved = params.get("lambda_nm") or (
-                platform_obj.default_wavelength_nm if platform_obj else 1550.0
-            )
-            Aeff_um2_resolved = params.get("aeff_um2") or (
-                platform_obj.nonlinear.Aeff_um2_default if platform_obj else 0.6
-            )
-            n2_resolved = (
-                params.get("n2")
-                if params.get("n2") is not None
-                else (platform_obj.nonlinear.n2_m2_per_W if platform_obj else 1e-17)
-            )
-            loss_dB_cm_resolved = (
-                params.get("loss_dB_cm")
-                if params.get("loss_dB_cm") is not None
-                else (platform_obj.fabrication.loss_dB_per_cm if platform_obj else 0.1)
-            )
-
-            # Create device and run simulation
-            dev = PhotonicMolecule(
-                xpm_mode=params["xpm_mode"],
-                n2=n2_resolved,
-                A_eff=Aeff_um2_resolved * 1e-12,
-                n_eff=3.4,
-                g_geom=1.0,
-            )
-            ctl = ExperimentController(dev)
-            cascade_result = ctl.test_cascade(
-                n_stages=2, threshold_mode=params["threshold"], beta=params["beta"]
-            )
-
-            # Extract measured statistics
-            min_on_global = float("inf")
-            max_off_global = 0.0
-
-            for gate_name, gate_data in cascade_result.items():
-                if "details" in gate_data and "logic_out" in gate_data:
-                    for detail, logic_out in zip(gate_data["details"], gate_data["logic_out"]):
-                        signal = detail.get("signal", 0.0)
-                        if logic_out == 1:
-                            min_on_global = min(min_on_global, signal)
-                        else:
-                            max_off_global = max(max_off_global, signal)
-
-            if min_on_global == float("inf"):
-                min_on_global = 1.0
-
-            worst_off_norm = max_off_global / max(min_on_global, 1e-30)
-
-            # Compute power report
-            pins = PowerInputs(
-                wavelength_nm=wavelength_nm_resolved,
-                platform_loss_dB_cm=loss_dB_cm_resolved,
-                coupling_eta=params["coupling_eta"],
-                link_length_um=params["link_length_um"],
-                fanout=params["fanout"],
-                pulse_ns=params.get("pulse_ns"),
-                bitrate_GHz=params.get("bitrate_GHz"),
-                q_factor=params.get("q_factor"),
-                P_high_mW=params["P_high_mW"],
-                threshold_norm=0.5,
-                worst_off_norm=worst_off_norm,
-                extinction_target_dB=20.0,
-                n2_m2_per_W=n2_resolved,
-                Aeff_um2=Aeff_um2_resolved,
-                dn_dT_per_K=(platform_obj.thermal.dn_dT_per_K if platform_obj else None),
-                tau_thermal_ns=(platform_obj.thermal.tau_thermal_ns if platform_obj else None),
-                L_eff_um=10.0,
-                include_2pa=params.get("include_2pa", False),
-                beta_2pa_m_per_W=(platform_obj.nonlinear.beta_2pa_m_per_W if platform_obj else 0.0),
-                auto_timing=params.get("auto_timing", False)
-                or (params.get("pulse_ns") is None and params.get("bitrate_GHz") is None),
-            )
-
-            power_rep = compute_power_report(pins)
-
-            # Create artifact
-            artifact = {
-                "meta": {
-                    "index": idx,
-                    "platform": params.get("platform"),
-                    "beta": params["beta"],
-                    "threshold": params["threshold"],
-                    "xpm_mode": params["xpm_mode"],
-                    "P_high_mW": params["P_high_mW"],
-                    "fanout": params["fanout"],
-                    "coupling_eta": params["coupling_eta"],
-                    "link_length_um": params["link_length_um"],
-                    "lambda_nm": wavelength_nm_resolved,
-                    "aeff_um2": Aeff_um2_resolved,
-                    "q_factor": params.get("q_factor"),
-                    "include_2pa": params.get("include_2pa", False),
-                },
-                "cascade": cascade_result,
-                "power": power_rep.raw,
-            }
-
-            results.append(artifact)
-
-            # Save per-point JSON if requested
-            if outdir:
-                outdir.mkdir(parents=True, exist_ok=True)
-                base = f"{idx:04d}_{params.get('platform', 'raw')}_b{params['beta']}_P{params['P_high_mW']}mW_FO{params['fanout']}"
-                save_json(artifact, outdir / f"{base}.json")
-
-            # Append to CSV if requested
-            if csv:
-                merged = {"meta": artifact["meta"], **artifact["power"]}
-                save_csv(merged, csv)
-
-            if not quiet:
-                typer.echo(
-                    f"[sweep] {idx+1}/{len(combinations)} done: platform={params.get('platform')} P={params['P_high_mW']}mW β={params['beta']} fanout={params['fanout']}"
-                )
-
-        except Exception as e:
-            if not quiet:
-                typer.echo(f"[sweep][ERROR] {idx+1}/{len(combinations)}: {e}")
-
-    if not quiet:
-        typer.echo(f"[sweep] Complete: {len(results)} points processed")
+    typer.echo(json.dumps({"error": f"Unknown metric: {metric}"}, indent=2))
 
 
-@app.command("demo")
-def demo(
-    gate: str = typer.Option("XOR", "--gate", help="Logic gate to demonstrate: AND, OR, XOR, or ALL"),
-    platform: str = typer.Option("AlGaAs", "--platform", help="Material platform: Si, SiN, or AlGaAs"),
-    threshold: str = typer.Option("soft", "--threshold", help="Thresholding: 'hard' or 'soft'"),
-    beta: float = typer.Option(30.0, "--beta", help="Sigmoid slope for soft thresholding"),
-    show_pipeline: bool = typer.Option(True, "--show-pipeline", help="Show step-by-step pipeline"),
-    report: str = typer.Option("power", "--report", help="Include power analysis: 'none' or 'power'"),
-    output: str = typer.Option("summary", "--output", help="Output format: 'summary', 'truth-table', 'json', or 'full'"),
-    csv: Optional[Path] = typer.Option(None, "--csv", help="When --output truth-table, write the truth table to this CSV path"),
-    save_primary: Optional[Path] = typer.Option(None, "--save-primary", help="Save complete demo output as JSON"),
-    P_high_mW: Optional[float] = typer.Option(None, "--P-high-mW", help="Drive power [mW] (auto-optimized per platform)"),
-    pulse_ns: Optional[float] = typer.Option(None, "--pulse-ns", help="Pulse width [ns] (auto-optimized per platform)"),
-    coupling_eta: Optional[float] = typer.Option(None, "--coupling-eta", help="Coupling efficiency [0..1] (default: 0.8)"),
-    link_length_um: Optional[float] = typer.Option(None, "--link-length-um", help="Link length [µm] (default: 50)"),
-    stages: Optional[str] = typer.Option(None, "--stages", help="Cascade stages: number or 'auto' (default: 2)"),
-    # Extinction ratio calculation mode
-    realistic_extinction: bool = typer.Option(False, "--realistic-extinction", help="Use measured statistics for engineering assessment"),
-    idealized_extinction: bool = typer.Option(True, "--idealized-extinction", help="Use theoretical floor for presentation purposes (default for demo)"),
+@app.command("visualize")
+def visualize(
+    mode: str = typer.Option(
+        "soft-threshold", "--mode", help="Visualization mode (e.g., 'soft-threshold')"
+    ),
+    beta: float = typer.Option(20.0, "--beta", help="Sigmoid slope for soft threshold plot"),
+    out: Path = typer.Option(Path("soft_threshold.png"), "--out", help="Output image path"),
 ) -> None:
     """
-    🚀 SHOWCASE COMMAND: Complete photonic logic pipeline demonstration.
-    
-    This is the "holy grail" command that shows the entire workflow:
-    Gate Definition → Physics Simulation → Soft Thresholding → Truth Table → Power Analysis
-    
-    Perfect for demos, tutorials, and rapid evaluation of the platform's capabilities.
+    Produce basic visualizations to aid intuition.
+    - soft-threshold: plot y = sigmoid(x - 0.5, beta) for x in [0,1].
     """
-    if show_pipeline:
-        typer.echo("Photonic Logic Pipeline Demonstration")
-        typer.echo("=" * 50)
-        typer.echo(f"Step 1: Material Platform Selection")
-        typer.echo(f"   Platform: {platform}")
-        
-    # Load platform
-    pdb = PlatformDB()
-    platform_obj = pdb.get(platform)
-    
-    # Platform-specific optimal defaults (including coupling and link parameters)
-    demo_defaults = {
-        'AlGaAs': {
-            'P_high_mW': 0.06,      # Optimized for 33-stage cascade
-            'pulse_ns': 1.4,        # Optimized for thermal safety
-            'coupling_eta': 0.98,   # High efficiency coupling
-            'link_length_um': 60.0  # Optimized link length
-        },
-        'Si': {
-            'P_high_mW': 0.3,
-            'pulse_ns': 0.3,
-            'coupling_eta': 0.8,
-            'link_length_um': 50.0
-        },
-        'SiN': {
-            'P_high_mW': 0.5,
-            'pulse_ns': 1.0,
-            'coupling_eta': 0.8,
-            'link_length_um': 50.0
-        }
-    }
-    
-    # Use platform-optimized defaults if not specified
-    defaults = demo_defaults.get(platform, {
-        'P_high_mW': 0.5,
-        'pulse_ns': 1.0,
-        'coupling_eta': 0.8,
-        'link_length_um': 50.0
-    })
-    P_high_mW_resolved = P_high_mW if P_high_mW is not None else defaults['P_high_mW']
-    pulse_ns_resolved = pulse_ns if pulse_ns is not None else defaults['pulse_ns']
-    
-    if show_pipeline:
-        typer.echo(f"   Material: {platform_obj.name}")
-        typer.echo(f"   n₂: {platform_obj.nonlinear.n2_m2_per_W:.1e} m²/W")
-        typer.echo(f"   Power scaling: {1e-17/platform_obj.nonlinear.n2_m2_per_W:.1f}× vs baseline")
-        if P_high_mW is None or pulse_ns is None:
-            typer.echo(f"   Using platform-optimized defaults for best performance")
-        typer.echo()
-        typer.echo(f"Step 2: Physics Simulation")
-        typer.echo(f"   Gate type: {gate}")
-        typer.echo(f"   Drive power: {P_high_mW_resolved} mW")
-        typer.echo(f"   Pulse width: {pulse_ns_resolved} ns")
-        typer.echo()
+    if mode == "soft-threshold":
+        import numpy as np
 
-    # Resolve coupling and link parameters using platform defaults
-    coupling_eta_resolved = coupling_eta if coupling_eta is not None else defaults.get('coupling_eta', 0.8)
-    link_length_um_resolved = link_length_um if link_length_um is not None else defaults.get('link_length_um', 50.0)
-    
-    # Determine stages for cascade simulation
-    stages_resolved = 2  # default
-    if stages == "auto":
-        # Will be determined from power analysis
-        stages_resolved = 2  # Start with 2 for initial analysis
-    elif stages is not None:
-        try:
-            stages_resolved = int(stages)
-        except ValueError:
-            stages_resolved = 2
-    
-    # Resolve parameters
-    n2_resolved = platform_obj.nonlinear.n2_m2_per_W
-    Aeff_um2 = platform_obj.nonlinear.Aeff_um2_default
-    A_eff_m2 = Aeff_um2 * 1e-12
+        x = np.linspace(0.0, 1.0, 501)
+        y = sigmoid(x - 0.5, beta)
+        plt.figure(figsize=(5, 3.2))
+        plt.plot(x, y, label=f"sigmoid(x-0.5, beta={beta:g})")
+        plt.axvline(0.5, color="k", ls="--", alpha=0.4)
+        plt.xlabel("Input (normalized)")
+        plt.ylabel("Output")
+        plt.title("Soft Threshold (Sigmoid)")
+        plt.grid(alpha=0.3)
+        plt.legend()
+        out.parent.mkdir(parents=True, exist_ok=True)
+        plt.tight_layout()
+        plt.savefig(out, dpi=150)
+        typer.echo(f"Wrote {out}")
+        return
 
-    # Create device and run simulation
-    dev = PhotonicMolecule(
-        xpm_mode="physics", 
-        n2=n2_resolved, 
-        A_eff=A_eff_m2, 
-        n_eff=3.4, 
-        g_geom=1.0
-    )
-    ctl = ExperimentController(dev)
-    
-    # Run cascade simulation
-    res = ctl.test_cascade(n_stages=stages_resolved, threshold_mode=threshold, beta=beta)
-    
-    if show_pipeline:
-        typer.echo(f"Step 3: Logic Gate Results")
-        
-    # Filter results by gate if specific gate requested
-    if gate.upper() != "ALL":
-        if gate.upper() in res:
-            filtered_res = {gate.upper(): res[gate.upper()]}
-        else:
-            typer.echo(f"❌ Error: Gate '{gate}' not found. Available: {', '.join(res.keys())}")
-            return
-    else:
-        filtered_res = res
-    
-    # Show truth table format if requested
-    if output == "truth-table" or show_pipeline:
-        if show_pipeline:
-            typer.echo("   Truth Tables:")
-        for gate_name, gate_data in filtered_res.items():
-            logic_out = gate_data.get("logic_out", gate_data.get("logic_out_soft", []))
-            if show_pipeline:
-                typer.echo(f"   {gate_name}: {logic_out}")
-            elif output == "truth-table":
-                typer.echo(f"{gate_name}: {logic_out}")
-    
-    if show_pipeline and report == "power":
-        typer.echo()
-        typer.echo(f"⚡ Step 4: Power Budget Analysis")
-    
-    # Power analysis if requested
-    if report == "power":
-        # Validate and resolve extinction mode
-        try:
-            extinction_mode = validate_extinction_mode_flags(realistic_extinction, idealized_extinction)
-        except ValueError as e:
-            typer.echo(f"❌ Error: {e}")
-            return
-        
-        # Extract statistics using shared function
-        stats = extract_cascade_statistics(filtered_res, extinction_mode)
-        min_on_global = stats["min_on_level"]
-        max_off_global = stats["max_off_level"]
-        worst_off_norm = stats["worst_off_norm"]
-        
-        if show_pipeline and extinction_mode == "idealized":
-            typer.echo("   Using idealized extinction mode (theoretical floor)")
-        elif show_pipeline and extinction_mode == "realistic":
-            typer.echo("   Using realistic extinction mode (measured statistics)")
-        
-        # Build power analysis with resolved parameters
-        pins = PowerInputs(
-            wavelength_nm=platform_obj.default_wavelength_nm,
-            platform_loss_dB_cm=platform_obj.fabrication.loss_dB_per_cm,
-            coupling_eta=coupling_eta_resolved,  # NOW PARAMETERIZED
-            link_length_um=link_length_um_resolved,  # NOW PARAMETERIZED
-            fanout=1,
-            pulse_ns=pulse_ns_resolved,
-            P_high_mW=P_high_mW_resolved,
-            threshold_norm=0.5,
-            worst_off_norm=worst_off_norm,
-            extinction_target_dB=21.0,
-            er_epsilon=1e-12,
-            n2_m2_per_W=n2_resolved,
-            Aeff_um2=Aeff_um2,
-            dn_dT_per_K=platform_obj.thermal.dn_dT_per_K,
-            tau_thermal_ns=platform_obj.thermal.tau_thermal_ns,
-            include_2pa=platform_obj.flags.tpa_present_at_1550,
-            beta_2pa_m_per_W=platform_obj.nonlinear.beta_2pa_m_per_W,
-            auto_timing=False
-        )
-        
-        power_rep = compute_power_report(pins)
-        
-        if show_pipeline:
-            typer.echo(f"   Energy per operation: {power_rep.E_op_fJ:.0f} fJ")
-            typer.echo(f"   Photons per operation: {power_rep.photons_per_op:.1e}")
-            typer.echo(f"   Cascade depth limit: {power_rep.max_depth_meeting_thresh} stages")
-            if stages == "auto":
-                typer.echo(f"   Auto-detected optimal cascade depth: {power_rep.max_depth_meeting_thresh} stages")
-            typer.echo(f"   Thermal safety: {power_rep.thermal_flag}")
-            typer.echo()
-            typer.echo(f"📊 Step 5: Contrast Breakdown")
-            contrast_data = power_rep.raw.get("contrast_breakdown", {})
-            typer.echo(f"   Floor contrast: {contrast_data.get('floor_contrast_dB', 0):.1f} dB")
-            typer.echo(f"   Target contrast: {contrast_data.get('target_contrast_dB', 0):.1f} dB")
-            typer.echo(f"   Margin: {contrast_data.get('margin_dB', 0):.1f} dB")
-            typer.echo(f"   Meets extinction: {power_rep.raw.get('extinction', {}).get('meets_extinction', False)}")
-            typer.echo()
-            typer.echo("🎯 Complete Pipeline Results:")
-            typer.echo("=" * 50)
-    
-    # Prepare combined output
-    combined_output = None
-    if report == "power":
-        combined_output = {
-            "cascade": filtered_res,
-            "power_analysis": power_rep.raw if report == "power" else None,
-            "demo_info": {
-                "platform": platform,
-                "gate": gate,
-                "threshold": threshold,
-                "beta": beta,
-                "P_high_mW": P_high_mW_resolved,
-                "pulse_ns": pulse_ns_resolved,
-                "coupling_eta": coupling_eta_resolved,
-                "link_length_um": link_length_um_resolved,
-                "stages": stages if stages else stages_resolved
-            }
-        }
-    
-    # Save to file if requested
-    if save_primary:
-        output_data = combined_output if combined_output else filtered_res
-        save_json(output_data, save_primary)
-        typer.echo(f"💾 Complete output saved to {save_primary}")
-    
-    # Output results based on format
-    if output == "truth-table":
-        # Print truth table to stdout
-        if not show_pipeline:  # Already shown above if show_pipeline
-            typer.echo("\nTruth Table (A,B):")
-            for gate_name, gate_data in filtered_res.items():
-                outputs = gate_data.get("outputs")
-                logic_out_soft = gate_data.get("logic_out_soft")
-                logic_out_hard = gate_data.get("logic_out")
-                
-                patterns = [(0, 0), (0, 1), (1, 0), (1, 1)]
-                for idx, (a, b) in enumerate(patterns):
-                    s = None if logic_out_soft is None else logic_out_soft[idx]
-                    h = None if logic_out_hard is None else logic_out_hard[idx]
-                    typer.echo(f"  ({a},{b})  soft={s}  hard={h}")
-                
-                # Show contrast breakdown for truth-table output
-                if report == "power" and not show_pipeline:
-                    cb = power_rep.raw.get("contrast_breakdown", {})
-                    if cb:
-                        typer.echo("\nContrast Breakdown:")
-                        typer.echo(f"  floor:  {cb['floor_contrast_dB']:.1f} dB")
-                        typer.echo(f"  target: {cb['target_contrast_dB']:.1f} dB")
-                        typer.echo(f"  margin: {cb['margin_dB']:.1f} dB")
-        
-        # CSV export if requested (regardless of show_pipeline)
-        if csv:
-            for gate_name, gate_data in filtered_res.items():
-                outputs = gate_data.get("outputs")
-                logic_out_soft = gate_data.get("logic_out_soft")
-                logic_out_hard = gate_data.get("logic_out")
-                
-                save_truth_table_csv(
-                    gate_name=gate_name,
-                    outputs=outputs,
-                    logic_out_soft=logic_out_soft,
-                    logic_out_hard=logic_out_hard,
-                    path=csv,
-                )
-                if not show_pipeline:
-                    typer.echo(f"\n[demo] Wrote truth table CSV → {csv}")
-    
-    elif output == "json" or output == "full":
-        if combined_output:
-            typer.echo(json.dumps(combined_output, indent=2))
-        else:
-            typer.echo(json.dumps(filtered_res, indent=2))
-    
-    elif output == "summary":
-        # Default summary output (existing pipeline display)
-        if not show_pipeline:
-            # If pipeline wasn't shown, show a brief summary
-            typer.echo(f"Gate: {gate}, Platform: {platform}, Threshold: {threshold}")
-            for gate_name, gate_data in filtered_res.items():
-                logic_out = gate_data.get("logic_out", gate_data.get("logic_out_soft", []))
-                typer.echo(f"{gate_name}: {logic_out}")
-            if report == "power":
-                typer.echo(f"Energy: {power_rep.E_op_fJ:.0f} fJ, Thermal: {power_rep.thermal_flag}")
-
-    if show_pipeline:
-        typer.echo()
-        typer.echo("✨ Pipeline Complete! This demonstrates:")
-        typer.echo("   • Material platform selection with real physics")
-        typer.echo("   • Logic gate simulation with power scaling")
-        typer.echo("   • Soft thresholding for robust operation")
-        typer.echo("   • Power budget analysis with thermal safety")
-        typer.echo("   • Truth table validation with energy costs")
-        typer.echo()
-        typer.echo("🎯 Ready for production photonic circuit design!")
+    typer.echo(json.dumps({"error": f"Unknown mode: {mode}"}, indent=2))
 
 
 def main() -> None:

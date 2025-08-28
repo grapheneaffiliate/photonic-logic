@@ -1,0 +1,4 @@
+# file: C:\Users\atchi\AppData\Roaming\Python\Python311\site-packages\numpy\_typing\__init__.py
+# hypothesis_version: 6.138.3
+
+['NBitBase', '_128Bit', '_16Bit', '_256Bit', '_32Bit', '_64Bit', '_80Bit', '_8Bit', '_96Bit', 'numpy.typing']
