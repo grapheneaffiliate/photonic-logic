@@ -15,7 +15,7 @@ from .controller import (
     generate_design_report,
 )
 from .materials import PlatformDB
-from .utils import soft_logic
+from .utils import soft_logic, extract_cascade_statistics, validate_extinction_mode_flags
 from .utils.io import save_csv, save_json, save_truth_table_csv
 
 # Keep help string consistent with smoke test expectations
@@ -181,6 +181,9 @@ def cascade(
     er_epsilon: float = typer.Option(1e-12, "--er-epsilon", help="Tolerance for ER boundary check"),
     thermal_scale: Optional[float] = typer.Option(None, "--thermal-scale", help="Platform-specific thermal multiplier (overrides DB)"),
     L_eff_um: float = typer.Option(10.0, "--L-eff-um", help="Effective interaction length [um]"),
+    # Extinction ratio calculation mode
+    realistic_extinction: bool = typer.Option(True, "--realistic-extinction", help="Use measured statistics for engineering assessment (default)"),
+    idealized_extinction: bool = typer.Option(False, "--idealized-extinction", help="Use theoretical floor for presentation purposes"),
     # Output options
     save_primary: Optional[Path] = typer.Option(
         None, "--save-primary", help="Save cascade JSON to file"
@@ -255,23 +258,21 @@ def cascade(
 
     # Extract measured statistics for power analysis
     if report == "power":
-        # Extract ON/OFF statistics from cascade results
-        min_on_global = float("inf")
-        max_off_global = 0.0
-
-        for gate_name, gate_data in res.items():
-            if "details" in gate_data and "logic_out" in gate_data:
-                for detail, logic_out in zip(gate_data["details"], gate_data["logic_out"]):
-                    signal = detail.get("signal", 0.0)
-                    if logic_out == 1:
-                        min_on_global = min(min_on_global, signal)
-                    else:
-                        max_off_global = max(max_off_global, signal)
-
-        if min_on_global == float("inf"):
-            min_on_global = 1.0
-
-        worst_off_norm = max_off_global / max(min_on_global, 1e-30)
+        # Validate and resolve extinction mode
+        try:
+            extinction_mode = validate_extinction_mode_flags(realistic_extinction, idealized_extinction)
+        except ValueError as e:
+            typer.echo(f"❌ Error: {e}")
+            return
+        
+        # Extract statistics using shared function
+        stats = extract_cascade_statistics(res, extinction_mode)
+        min_on_global = stats["min_on_level"]
+        max_off_global = stats["max_off_level"]
+        worst_off_norm = stats["worst_off_norm"]
+        
+        if not quiet and extinction_mode == "idealized":
+            typer.echo("[plogic] Using idealized extinction mode (theoretical floor)")
 
         # Build power analysis inputs
         pins = PowerInputs(
@@ -580,6 +581,9 @@ def demo(
     coupling_eta: Optional[float] = typer.Option(None, "--coupling-eta", help="Coupling efficiency [0..1] (default: 0.8)"),
     link_length_um: Optional[float] = typer.Option(None, "--link-length-um", help="Link length [µm] (default: 50)"),
     stages: Optional[str] = typer.Option(None, "--stages", help="Cascade stages: number or 'auto' (default: 2)"),
+    # Extinction ratio calculation mode
+    realistic_extinction: bool = typer.Option(False, "--realistic-extinction", help="Use measured statistics for engineering assessment"),
+    idealized_extinction: bool = typer.Option(True, "--idealized-extinction", help="Use theoretical floor for presentation purposes (default for demo)"),
 ) -> None:
     """
     🚀 SHOWCASE COMMAND: Complete photonic logic pipeline demonstration.
@@ -707,23 +711,23 @@ def demo(
     
     # Power analysis if requested
     if report == "power":
-        # Extract measured statistics
-        min_on_global = float("inf")
-        max_off_global = 0.0
+        # Validate and resolve extinction mode
+        try:
+            extinction_mode = validate_extinction_mode_flags(realistic_extinction, idealized_extinction)
+        except ValueError as e:
+            typer.echo(f"❌ Error: {e}")
+            return
         
-        for gate_name, gate_data in filtered_res.items():
-            if "details" in gate_data and "logic_out" in gate_data:
-                for detail, logic_out in zip(gate_data["details"], gate_data["logic_out"]):
-                    signal = detail.get("signal", 0.0)
-                    if logic_out == 1:
-                        min_on_global = min(min_on_global, signal)
-                    else:
-                        max_off_global = max(max_off_global, signal)
+        # Extract statistics using shared function
+        stats = extract_cascade_statistics(filtered_res, extinction_mode)
+        min_on_global = stats["min_on_level"]
+        max_off_global = stats["max_off_level"]
+        worst_off_norm = stats["worst_off_norm"]
         
-        if min_on_global == float("inf"):
-            min_on_global = 1.0
-        
-        worst_off_norm = max_off_global / max(min_on_global, 1e-30)
+        if show_pipeline and extinction_mode == "idealized":
+            typer.echo("   Using idealized extinction mode (theoretical floor)")
+        elif show_pipeline and extinction_mode == "realistic":
+            typer.echo("   Using realistic extinction mode (measured statistics)")
         
         # Build power analysis with resolved parameters
         pins = PowerInputs(
