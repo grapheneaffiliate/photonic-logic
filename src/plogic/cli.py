@@ -164,7 +164,9 @@ def cascade(
     if n2 is not None:
         dev.n2 = n2
     if q_factor is not None:
-        dev.Q = q_factor
+        # Set Q factor by adjusting kappa_A (since Q = omega0 / kappa_A)
+        dev.kappa_A = dev.omega0 / q_factor
+        dev.kappa_B = dev.kappa_A  # Keep symmetric for simplicity
     
     # Run cascade simulation
     ctl = ExperimentController(dev)
@@ -205,11 +207,13 @@ def cascade(
     
     # Show resolved parameters if requested
     if show_resolved:
+        # Calculate Q factor from omega0 and kappa_A
+        q_factor = dev.omega0 / dev.kappa_A if dev.kappa_A != 0 else 0
         resolved_params = {
             "n2": dev.n2,
-            "Q_factor": dev.Q,
+            "Q_factor": q_factor,
             "omega0": dev.omega0,
-            "alpha": dev.alpha,
+            "alpha": getattr(dev, 'alpha', 0.0),  # alpha might not exist
             "platform": platform_name,
             "fanout": fanout,
             "stages": stages
