@@ -15,6 +15,8 @@ from .controller import (
     PhotonicMolecule,
     generate_design_report,
 )
+from .materials.hybrid import HybridPlatform
+from .materials.platforms import PlatformDB
 from .utils.switching import sigmoid
 
 # Keep help string consistent with smoke test expectations
@@ -57,53 +59,68 @@ def demo(
     """
     Demonstrate logic gate operation with specified parameters.
     """
-    # Create device
-    dev = PhotonicMolecule()
+    # Load platform and configure device with platform-specific parameters
+    db = PlatformDB()
+    platform_obj = db.get(platform)
     
-    # Configure control parameters
+    # Create device with platform-specific parameters
+    dev = PhotonicMolecule(
+        n2=platform_obj.nonlinear.n2_m2_per_W,
+        xpm_mode="physics" if platform == "AlGaAs" else "linear"
+    )
+    
+    # Apply platform-specific power scaling for proper XPM effect
+    # Scale power inversely with n2 to maintain constant XPM effect across platforms
+    n2_reference = 1.5e-17  # AlGaAs baseline
+    n2_actual = platform_obj.nonlinear.n2_m2_per_W
+    power_scale = n2_reference / n2_actual if n2_actual != 0 else 1.0
+    
+    # Configure control parameters with platform scaling
     P_ctrl_low = 0.0
-    P_ctrl_high = p_high_mw * 1e-3  # Convert mW to W
+    P_ctrl_high = (p_high_mw * 1e-3) * power_scale  # Scale for platform
     
-    # Generate truth table for the gate
+    # Use the same logic implementation as cascade command for consistency
+    ctl = ExperimentController(dev)
+    base_P_ctrl_W = P_ctrl_high
+    pulse_duration_s = pulse_ns * 1e-9
+    
+    # Run the cascade simulation for just the specified gate
+    cascade_res = ctl.test_cascade(
+        n_stages=1,  # Single stage for demo
+        base_P_ctrl_W=base_P_ctrl_W,
+        pulse_duration_s=pulse_duration_s,
+        threshold_mode=threshold
+    )
+    
+    # Extract results for the specified gate
     gate_upper = gate.upper()
+    if gate_upper not in cascade_res:
+        # Fallback to XOR if gate not found
+        gate_upper = "XOR"
+    
+    gate_results = cascade_res[gate_upper]
     truth_table = []
     
-    for a in [0, 1]:
-        for b in [0, 1]:
-            # Determine control power based on inputs
-            if gate_upper in ["AND", "NAND"]:
-                P_ctrl = P_ctrl_high if (a == 1 and b == 1) else P_ctrl_low
-            elif gate_upper in ["OR", "NOR"]:
-                P_ctrl = P_ctrl_high if (a == 1 or b == 1) else P_ctrl_low
-            elif gate_upper in ["XOR", "XNOR"]:
-                P_ctrl = P_ctrl_high if (a != b) else P_ctrl_low
-            else:
-                P_ctrl = P_ctrl_low
-            
-            # Get device response
-            resp = dev.steady_state_response(dev.omega0, P_ctrl)
-            T_through = resp["T_through"]
-            
-            # Apply threshold
-            if threshold == "soft":
-                output_val = sigmoid(T_through - 0.5, 20.0)
-            else:
-                output_val = 1 if T_through > 0.5 else 0
-            
-            # Invert for NAND, NOR, XNOR
-            if gate_upper in ["NAND", "NOR", "XNOR"]:
-                output_val = 1 - output_val
-            
-            truth_table.append({
-                "A": a,
-                "B": b,
-                "P_ctrl_mW": P_ctrl * 1e3,
-                "T_through": T_through,
-                "Output": output_val,
-                "Gate": gate_upper,
-                "Platform": platform,
-                "Threshold": threshold
-            })
+    # Convert cascade results to demo format
+    inputs = [(0, 0), (0, 1), (1, 0), (1, 1)]
+    for i, (a, b) in enumerate(inputs):
+        detail = gate_results["details"][i]
+        
+        if threshold == "soft":
+            output_val = gate_results["logic_out_soft"][i] if "logic_out_soft" in gate_results else gate_results["outputs"][i]
+        else:
+            output_val = gate_results["logic_out"][i] if "logic_out" in gate_results else (1 if gate_results["outputs"][i] > 0.5 else 0)
+        
+        truth_table.append({
+            "A": a,
+            "B": b,
+            "P_ctrl_mW": detail["P_ctrl"] * 1e3,
+            "T_through": detail["signal"],  # Use signal from cascade simulation
+            "Output": output_val,
+            "Gate": gate_upper,
+            "Platform": platform,
+            "Threshold": threshold
+        })
     
     # Output results
     if output == "truth-table" or output == "csv":
@@ -138,10 +155,10 @@ def cascade(
     hybrid: bool = typer.Option(False, "--hybrid", help="Use hybrid platform (AlGaAs/SiN)"),
     routing_fraction: float = typer.Option(0.5, "--routing-fraction", help="Fraction of routing vs logic (hybrid only)"),
     report: Optional[str] = typer.Option(None, "--report", help="Report type (power, timing, all)"),
-    p_high_mw: float = typer.Option(1.0, "--P-high-mW", help="High control power in mW"),
-    pulse_ns: float = typer.Option(1.0, "--pulse-ns", help="Pulse duration in ns"),
-    coupling_eta: float = typer.Option(0.9, "--coupling-eta", help="Coupling efficiency"),
-    link_length_um: float = typer.Option(50.0, "--link-length-um", help="Link length in um"),
+    p_high_mw: Optional[float] = typer.Option(None, "--P-high-mW", help="High control power in mW"),
+    pulse_ns: Optional[float] = typer.Option(None, "--pulse-ns", help="Pulse duration in ns"),
+    coupling_eta: Optional[float] = typer.Option(None, "--coupling-eta", help="Coupling efficiency"),
+    link_length_um: Optional[float] = typer.Option(None, "--link-length-um", help="Link length in um"),
     include_2pa: bool = typer.Option(False, "--include-2pa", help="Include two-photon absorption"),
     auto_timing: bool = typer.Option(False, "--auto-timing", help="Auto-optimize timing"),
     show_resolved: bool = typer.Option(False, "--show-resolved", help="Show resolved parameters"),
@@ -151,7 +168,65 @@ def cascade(
     """
     Simulate cascade with advanced options including fanout and hybrid platforms.
     """
-    dev = PhotonicMolecule()
+    # Load platform and configure device
+    platform_name = platform or "AlGaAs"
+    db = PlatformDB()
+    platform_obj = db.get(platform_name)
+    
+    # Apply platform-specific optimized defaults if not explicitly provided
+    platform_defaults = {
+        "AlGaAs": {
+            "p_high_mw": 0.06,
+            "pulse_ns": 1.4,
+            "coupling_eta": 0.98,
+            "link_length_um": 60.0
+        },
+        "Si": {
+            "p_high_mw": 0.13,  # 2.2x baseline
+            "pulse_ns": 0.1,    # Sub-100ps switching
+            "coupling_eta": 0.9,
+            "link_length_um": 50.0
+        },
+        "SiN": {
+            "p_high_mw": 2.5,   # 42x baseline for ultra-stable
+            "pulse_ns": 1.0,
+            "coupling_eta": 0.9,
+            "link_length_um": 20.0
+        }
+    }
+    
+    # Use platform defaults if parameters not explicitly provided
+    defaults = platform_defaults.get(platform_name, platform_defaults["AlGaAs"])
+    p_high_mw = p_high_mw if p_high_mw is not None else defaults["p_high_mw"]
+    pulse_ns = pulse_ns if pulse_ns is not None else defaults["pulse_ns"]
+    coupling_eta = coupling_eta if coupling_eta is not None else defaults["coupling_eta"]
+    link_length_um = link_length_um if link_length_um is not None else defaults["link_length_um"]
+    
+    effective_n2 = platform_obj.nonlinear.n2_m2_per_W
+    xpm_mode = "physics" if platform_name == "AlGaAs" else "linear"
+    
+    if hybrid:
+        hybrid_platform = HybridPlatform(
+            logic_material=platform_name,
+            routing_material="SiN",
+            routing_fraction=routing_fraction
+        )
+        eff_params = hybrid_platform.get_effective_parameters()
+        effective_n2 = eff_params["effective_n2"]
+        effective_index = eff_params["effective_index"]
+        # Assuming A_eff weighted average; adjust if needed
+        logic_Aeff = platform_obj.nonlinear.Aeff_um2_default * 1e-12
+        routing_platform = db.get("SiN")
+        routing_Aeff = routing_platform.nonlinear.Aeff_um2_default * 1e-12
+        effective_Aeff = (1 - routing_fraction) * logic_Aeff + routing_fraction * routing_Aeff
+    
+    dev = PhotonicMolecule(
+        n2=effective_n2,
+        xpm_mode=xpm_mode
+    )
+    if hybrid:
+        dev.n_eff = effective_index
+        dev.A_eff = effective_Aeff
     
     # Configure platform
     platform_name = "Default"
@@ -168,9 +243,17 @@ def cascade(
         dev.kappa_A = dev.omega0 / q_factor
         dev.kappa_B = dev.kappa_A  # Keep symmetric for simplicity
     
+    # Calculate parameters
+    base_P_ctrl_W = p_high_mw * 1e-3
+    pulse_duration_s = pulse_ns * 1e-9
+    
     # Run cascade simulation
     ctl = ExperimentController(dev)
-    res = ctl.test_cascade(n_stages=stages)
+    res = ctl.test_cascade(
+        n_stages=stages,
+        base_P_ctrl_W=base_P_ctrl_W,
+        pulse_duration_s=pulse_duration_s
+    )
     
     # Add platform and configuration info
     for gate_type in res:
@@ -181,13 +264,15 @@ def cascade(
         
         # Calculate fanout-adjusted metrics
         if fanout > 1:
-            # Fanout reduces effective depth but adds splitting loss
-            effective_depth = max(1, stages // fanout)
+            # Fanout reduces effective depth but increases total energy
+            effective_depth = max(1, int(stages / math.sqrt(fanout)))  # Use sqrt scaling as documented
             split_efficiency = 10 ** (-split_loss_db / 10)
             
             res[gate_type]["effective_cascade_depth"] = effective_depth
             res[gate_type]["split_efficiency"] = split_efficiency
-            res[gate_type]["fanout_adjusted_energy_fJ"] = res[gate_type].get("base_energy_fJ", 10000) * split_efficiency
+            # Total energy increases with fanout (parallel operations)
+            base_energy = res[gate_type].get("base_energy_fJ", base_P_ctrl_W * pulse_duration_s * 1e15)
+            res[gate_type]["fanout_adjusted_energy_fJ"] = base_energy * fanout
         
         # Add hybrid platform info
         if hybrid:
@@ -196,9 +281,13 @@ def cascade(
     
     # Add power report if requested
     if report == "power":
+        # Use values from simulation for consistency
+        # Assuming all gates have same metrics
+        sample_gate = "AND"
         power_summary = {
-            "total_power_mW": p_high_mw,
-            "pulse_energy_fJ": p_high_mw * pulse_ns,
+            "total_power_mW": res[sample_gate]["effective_P_ctrl_mW"],
+            "pulse_energy_fJ": res[sample_gate]["base_energy_fJ"],
+            "power_scale_factor": res[sample_gate]["power_scale_factor"],
             "platform": platform_name,
             "coupling_efficiency": coupling_eta,
             "link_length_um": link_length_um

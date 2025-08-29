@@ -5,7 +5,7 @@ This module provides consistent statistics extraction across demo and cascade co
 ensuring harmonized extinction ratio calculations for realistic engineering assessment.
 """
 
-from typing import Dict, Any, Tuple
+from typing import Any, Dict
 
 
 def extract_cascade_statistics(

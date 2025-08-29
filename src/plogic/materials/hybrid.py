@@ -7,8 +7,10 @@ to leverage their specific advantages (e.g., AlGaAs for XPM logic, SiN for low-l
 
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
+
 import numpy as np
-from .platforms import PlatformDB, Platform
+
+from .platforms import PlatformDB
 
 
 @dataclass
@@ -50,7 +52,7 @@ class HybridPlatform:
         try:
             db = PlatformDB()
             return db.get(material_name)
-        except:
+        except Exception:
             # Create a simple object with necessary attributes if not in database
             class SimplePlatform:
                 def __init__(self, name, prop_loss_db_cm, n_eff, n2):

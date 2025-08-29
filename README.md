@@ -27,18 +27,19 @@ The industry's first comprehensive photonic circuit design platform - the "SPICE
 | Platform | Power Required | Energy/Op | Max Cascade | Thermal Safe | CMOS Compatible |
 |----------|---------------|-----------|-------------|--------------|-----------------|
 | AlGaAs   | 0.06 mW*      | 84 fJ**   | 33 stages***| <1 mW       | ❌              |
-| Silicon  | 2.2× baseline | 330 fJ    | 5 stages    | <10 mW      | ✅              |
-| SiN      | 42× baseline  | 500 fJ    | 3-6 stages  | <500 mW     | ✅              |
-| **Hybrid**| Variable     | Optimized | 10+ stages  | Balanced    | ✅              |
+| Silicon  | 0.43 mW (3.3×)| 43 fJ     | 5 stages    | <10 mW      | ✅              |
+| SiN      | 156 mW (62.5×)| 156 pJ    | 1-2 stages  | Impractical | ❌              |
+| **Hybrid**| 0.19 mW (3.2×)| 270 fJ    | 10+ stages  | Balanced    | ✅              |
 
 *\*Optimized with η=0.98 coupling, 60µm links, 1.4ns pulses*  
 *\*\*Ultra-low energy with optimized parameters*  
 *\*\*\*11× improvement with proper thermal calculations and optimization*
 
 **Why material selection matters:**
-- One AlGaAs gate: 0.67 mW (but thermally limited)
-- Same gate in SiN: 42 mW (**62× more power, but thermally stable!**)
-- Hybrid approach: Balance power and stability optimally
+- One AlGaAs gate: 0.06 mW (ultra-low power, thermally manageable)
+- Same gate in Silicon: 0.43 mW (3.3× more power, CMOS compatible)
+- Same gate in SiN: 156 mW (**2600× more power, impractical for logic!**)
+- Hybrid approach: 0.19 mW (3.2× power, balanced performance)
 
 ## Quick Start (30 Seconds)
 
@@ -46,34 +47,34 @@ The industry's first comprehensive photonic circuit design platform - the "SPICE
 pip install -e .
 
 # Basic optimized cascade
-python -m plogic demo --gate XOR --platform AlGaAs --P-high-mW 0.06 --pulse-ns 1.4 --coupling-eta 0.98 --link-length-um 60
+plogic demo --gate XOR --platform AlGaAs --P-high-mW 0.06 --pulse-ns 1.4 --coupling-eta 0.98 --link-length-um 60
 
 # NEW: Fanout parallelism (v2.3)
-python -m plogic cascade --platform AlGaAs --fanout 4 --split-loss-db 0.5 --report power
+plogic cascade --platform AlGaAs --fanout 4 --split-loss-db 0.5 --report power
 
 # NEW: Hybrid platform (v2.3)
-python -m plogic cascade --hybrid --routing-fraction 0.7 --report power
+plogic cascade --hybrid --routing-fraction 0.7 --report power
 
 # Platform comparison
-python -m plogic sweep --platforms Si --platforms SiN --platforms AlGaAs --csv comparison.csv
+plogic sweep --platforms Si --platforms SiN --platforms AlGaAs --csv comparison.csv
 ```
 
 ### 🎯 The "Holy Grail" Commands
 
 #### Classic Single-Path Logic
 ```bash
-python -m plogic demo --gate XOR --platform SiN --threshold soft --output truth-table
+plogic demo --gate XOR --platform SiN --threshold soft --output truth-table
 ```
 
 #### NEW: Parallel Fanout Logic (v2.3)
 ```bash
-python -m plogic cascade --platform AlGaAs --fanout 4 --split-loss-db 0.3 --report power
+plogic cascade --platform AlGaAs --fanout 4 --split-loss-db 0.3 --report power
 ```
 **Demonstrates parallel processing with 4× fanout, reducing effective depth by ~2×**
 
 #### NEW: Hybrid Material Routing (v2.3)
 ```bash
-python -m plogic cascade --hybrid --routing-fraction 0.7 --report power
+plogic cascade --hybrid --routing-fraction 0.7 --report power
 ```
 **Shows optimal material switching: 30% logic in AlGaAs (default), 70% routing in low-loss SiN (default)**
 
@@ -145,7 +146,7 @@ Understanding these parameters is essential for photonic circuit design:
 
 ### Low-Power Dense Logic (AlGaAs) - Optimized
 ```bash
-python -m plogic cascade --platform AlGaAs --P-high-mW 0.06 --pulse-ns 1.4 --coupling-eta 0.98 --link-length-um 60 --report power
+plogic cascade --platform AlGaAs --P-high-mW 0.06 --pulse-ns 1.4 --coupling-eta 0.98 --link-length-um 60 --report power
 ```
 - 0.06 mW control power (ultra-low)
 - 84 fJ/operation
@@ -154,7 +155,7 @@ python -m plogic cascade --platform AlGaAs --P-high-mW 0.06 --pulse-ns 1.4 --cou
 
 ### NEW: Parallel Processing Network (v2.3)
 ```bash
-python -m plogic cascade --platform AlGaAs --fanout 4 --split-loss-db 0.5 --stages 8 --report power
+plogic cascade --platform AlGaAs --fanout 4 --split-loss-db 0.5 --stages 8 --report power
 ```
 - 4× parallel fanout
 - Effective depth: 4 stages (reduced from 8)
@@ -163,7 +164,7 @@ python -m plogic cascade --platform AlGaAs --fanout 4 --split-loss-db 0.5 --stag
 
 ### NEW: Hybrid Long-Distance Router (v2.3)
 ```bash
-python -m plogic cascade --hybrid --routing-fraction 0.8 --report power
+plogic cascade --hybrid --routing-fraction 0.8 --report power
 ```
 - 20% AlGaAs for logic operations (default)
 - 80% SiN for low-loss routing (default)
@@ -172,7 +173,7 @@ python -m plogic cascade --hybrid --routing-fraction 0.8 --report power
 
 ### CMOS-Compatible Router (Silicon)
 ```bash
-python -m plogic cascade --platform Si --pulse-ns 0.1 --include-2pa --report power
+plogic cascade --platform Si --pulse-ns 0.1 --include-2pa --report power
 ```
 - Sub-100ps switching
 - CMOS foundry compatible
@@ -180,7 +181,7 @@ python -m plogic cascade --platform Si --pulse-ns 0.1 --include-2pa --report pow
 
 ### Ultra-Stable High-Q Logic (SiN)
 ```bash
-python -m plogic cascade --platform SiN --coupling-eta 0.9 --link-length-um 20 --report power
+plogic cascade --platform SiN --coupling-eta 0.9 --link-length-um 20 --report power
 ```
 - Excellent thermal stability
 - 6+ cascade stages possible
@@ -189,16 +190,16 @@ python -m plogic cascade --platform SiN --coupling-eta 0.9 --link-length-um 20 -
 ### Design Space Exploration
 ```bash
 # Platform comparison
-python -m plogic sweep --platforms Si --platforms SiN --platforms AlGaAs --P-high-mW 0.5 --P-high-mW 1.0 --csv platform_comparison.csv
+plogic sweep --platforms Si --platforms SiN --platforms AlGaAs --P-high-mW 0.5 --P-high-mW 1.0 --csv platform_comparison.csv
 
 # NEW: Fanout optimization (v2.3)
-python -m plogic sweep --platforms AlGaAs --fanout 1 --fanout 2 --fanout 4 --fanout 8 --split-loss-db 0.3 --split-loss-db 0.5 --split-loss-db 1.0 --csv fanout_analysis.csv
+plogic sweep --platforms AlGaAs --fanout 1 --fanout 2 --fanout 4 --fanout 8 --split-loss-db 0.3 --split-loss-db 0.5 --split-loss-db 1.0 --csv fanout_analysis.csv
 
 # NEW: Hybrid routing optimization (v2.3)
-python -m plogic sweep --platforms AlGaAs --routing-fraction 0.3 --routing-fraction 0.5 --routing-fraction 0.7 --routing-fraction 0.9 --csv hybrid_optimization.csv
+plogic sweep --platforms AlGaAs --routing-fraction 0.3 --routing-fraction 0.5 --routing-fraction 0.7 --routing-fraction 0.9 --csv hybrid_optimization.csv
 
 # Energy scaling analysis
-python -m plogic sweep --platforms Si --P-high-mW 0.3 --P-high-mW 0.5 --P-high-mW 0.8 --pulse-ns 0.2 --pulse-ns 0.5 --pulse-ns 1.0 --csv energy_scaling.csv
+plogic sweep --platforms Si --P-high-mW 0.3 --P-high-mW 0.5 --P-high-mW 0.8 --pulse-ns 0.2 --pulse-ns 0.5 --pulse-ns 1.0 --csv energy_scaling.csv
 ```
 
 ## Enhanced CLI Features (v2.3+)
@@ -206,49 +207,49 @@ python -m plogic sweep --platforms Si --P-high-mW 0.3 --P-high-mW 0.5 --P-high-m
 ### NEW: Fanout Control (v2.3)
 ```bash
 # Basic fanout
-python -m plogic cascade --platform AlGaAs --fanout 4 --report power
+plogic cascade --platform AlGaAs --fanout 4 --report power
 
 # Custom split loss
-python -m plogic cascade --platform SiN --fanout 2 --split-loss-db 0.3 --report power
+plogic cascade --platform SiN --fanout 2 --split-loss-db 0.3 --report power
 
 # Fanout with optimization
-python -m plogic cascade --platform Si --fanout 8 --stages 16 --report power
+plogic cascade --platform Si --fanout 8 --stages 16 --report power
 ```
 
 ### NEW: Hybrid Platform Control (v2.3)
 ```bash
 # Default hybrid (AlGaAs/SiN)
-python -m plogic cascade --hybrid --report power
+plogic cascade --hybrid --report power
 
 # Routing fraction control (adjusts balance between AlGaAs logic and SiN routing)
-python -m plogic cascade --hybrid --routing-fraction 0.6 --report power
+plogic cascade --hybrid --routing-fraction 0.6 --report power
 
 # With fanout for parallel processing
-python -m plogic cascade --hybrid --routing-fraction 0.7 --fanout 4 --report power
+plogic cascade --hybrid --routing-fraction 0.7 --fanout 4 --report power
 ```
 
 ### Material Platform Integration
 ```bash
 # Platform-specific analysis
-python -m plogic cascade --platform SiN --report power --auto-timing
+plogic cascade --platform SiN --report power --auto-timing
 
 # Parameter debugging
-python -m plogic cascade --platform Si --show-resolved --include-2pa
+plogic cascade --platform Si --show-resolved --include-2pa
 
 # Override platform defaults
-python -m plogic cascade --platform Si --n2 3e-18 --q-factor 5e5
+plogic cascade --platform Si --n2 3e-18 --q-factor 5e5
 ```
 
 ### Power Budget Analysis
 ```bash
 # Comprehensive power reporting
-python -m plogic cascade --platform SiN --report power --P-high-mW 0.5
+plogic cascade --platform SiN --report power --P-high-mW 0.5
 
 # Energy optimization with fanout
-python -m plogic cascade --platform AlGaAs --fanout 4 --pulse-ns 0.3 --report power
+plogic cascade --platform AlGaAs --fanout 4 --pulse-ns 0.3 --report power
 
 # Thermal safety with hybrid
-python -m plogic cascade --hybrid --P-high-mW 1.0 --report power
+plogic cascade --hybrid --P-high-mW 1.0 --report power
 ```
 
 ## Photonics vs Electronics Comparison
@@ -295,13 +296,13 @@ See `docs/LIMITATIONS_AND_ROADMAP.md` for detailed technical discussion.
 **Solutions**:
 ```bash
 # Reduce drive power
-python -m plogic cascade --platform Si --P-high-mW 0.5
+plogic cascade --platform Si --P-high-mW 0.5
 
 # Use hybrid platform for better thermal management
-python -m plogic cascade --hybrid --routing-fraction 0.7
+plogic cascade --hybrid --routing-fraction 0.7
 
 # Switch to thermally stable platform
-python -m plogic cascade --platform SiN --report power
+plogic cascade --platform SiN --report power
 ```
 
 ### Poor extinction ratio with fanout
@@ -309,13 +310,13 @@ python -m plogic cascade --platform SiN --report power
 **Solutions**:
 ```bash
 # Reduce fanout degree
-python -m plogic cascade --platform AlGaAs --fanout 2 --report power
+plogic cascade --platform AlGaAs --fanout 2 --report power
 
 # Optimize split loss
-python -m plogic cascade --platform SiN --fanout 4 --split-loss-db 0.3
+plogic cascade --platform SiN --fanout 4 --split-loss-db 0.3
 
 # Use hybrid platform for better signal preservation
-python -m plogic cascade --hybrid --fanout 4 --report power
+plogic cascade --hybrid --fanout 4 --report power
 ```
 
 ### Limited cascade depth
@@ -323,13 +324,13 @@ python -m plogic cascade --hybrid --fanout 4 --report power
 **Solutions**:
 ```bash
 # Use fanout to reduce effective depth
-python -m plogic cascade --platform AlGaAs --fanout 4 --stages 8
+plogic cascade --platform AlGaAs --fanout 4 --stages 8
 
 # Switch to hybrid platform
-python -m plogic cascade --hybrid --routing-fraction 0.6
+plogic cascade --hybrid --routing-fraction 0.6
 
 # Improve coupling efficiency
-python -m plogic cascade --platform SiN --coupling-eta 0.95
+plogic cascade --platform SiN --coupling-eta 0.95
 ```
 
 ## Advanced Features

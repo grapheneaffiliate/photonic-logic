@@ -274,6 +274,8 @@ class ExperimentController:
     def test_cascade(
         self, 
         n_stages: int = 2, 
+        base_P_ctrl_W: float = 1e-3,
+        pulse_duration_s: float = 10e-9,
         threshold_mode: str = "hard", 
         beta: float = 25.0,
         fanout: int = 1,
@@ -293,43 +295,39 @@ class ExperimentController:
         split_efficiency = 1.0
         if fanout > 1:
             split_efficiency = 10 ** (-split_loss_db / 10)  # Power efficiency per split
-
+    
         # Physics-based power scaling
-        # Scale control power based on material's n2 to maintain constant phase shift
-        base_P_ctrl = 1e-3  # 1 mW baseline
-        n2_reference = 1e-17  # Reference n2 value (m^2/W)
+        n2_reference = 1.5e-17  # AlGaAs baseline
         n2_actual = self.device.n2 if self.device.n2 else n2_reference
-
-        # Power scales inversely with n2 to maintain constant XPM effect
-        # Δφ = (2π/λ) * n2 * I * L, where I = P/A_eff
-        # To keep Δφ constant: P ∝ 1/n2
         power_scale = n2_reference / n2_actual if n2_actual != 0 else 1.0
-
+    
+        effective_P_ctrl_W = base_P_ctrl_W * power_scale
+    
         # Truth tables for each logic gate (for reference):
         # AND: [0, 0, 0, 1] - Only true when both inputs are 1
         # OR:  [0, 1, 1, 1] - True when at least one input is 1
         # XOR: [0, 1, 1, 0] - True when inputs are different
-
+    
         for logic in ["AND", "OR", "XOR"]:
             inputs = [(0, 0), (0, 1), (1, 0), (1, 1)]
             outputs = []
             output_details = []
-
+    
             for i, (in1, in2) in enumerate(inputs):
                 # Expected outputs for each logic gate:
                 # AND[i]: [0, 0, 0, 1][i]
                 # OR[i]:  [0, 1, 1, 1][i]
                 # XOR[i]: [0, 1, 1, 0][i]
-
+    
                 # Simulate photonic implementation with physics-based power scaling
                 if logic == "AND":
                     # AND gate: signal passes only if both inputs are high
                     # Use control power to modulate transmission
                     P_ctrl = (
-                        in2 * base_P_ctrl * power_scale
+                        in2 * effective_P_ctrl_W
                     )  # Control from second input with scaling
                     signal = float(in1)  # Signal from first input
-
+    
                     # Pass through stages
                     for stage in range(n_stages):
                         resp = self.device.steady_state_response(
@@ -340,13 +338,13 @@ class ExperimentController:
                             signal *= float(resp["T_through"])
                         else:
                             signal *= 0.1  # Attenuate signal when not both high
-
+    
                 elif logic == "OR":
                     # OR gate: signal passes if either input is high
                     if in1 == 1 or in2 == 1:
                         signal = 1.0
                         # Use control to maintain high transmission with physics scaling
-                        P_ctrl = max(in1, in2) * base_P_ctrl * power_scale
+                        P_ctrl = max(in1, in2) * effective_P_ctrl_W
                         for stage in range(n_stages):
                             resp = self.device.steady_state_response(
                                 self.device.omega0, P_ctrl if stage == 0 else 0
@@ -355,13 +353,13 @@ class ExperimentController:
                     else:
                         signal = 0.0
                         P_ctrl = 0.0
-
+    
                 elif logic == "XOR":
                     # XOR gate: signal passes only if inputs are different
                     if in1 != in2:
                         signal = 1.0
                         # Use differential control with physics scaling
-                        P_ctrl = abs(in1 - in2) * base_P_ctrl * power_scale
+                        P_ctrl = abs(in1 - in2) * effective_P_ctrl_W
                         for stage in range(n_stages):
                             resp = self.device.steady_state_response(
                                 self.device.omega0, P_ctrl if stage == 0 else 0
@@ -370,7 +368,7 @@ class ExperimentController:
                     else:
                         signal = 0.0
                         P_ctrl = 0.0
-
+    
                 # Apply fanout splitting loss
                 if fanout > 1:
                     signal *= (split_efficiency ** (fanout - 1))
@@ -382,9 +380,9 @@ class ExperimentController:
                     "signal": signal,
                     "fanout": fanout
                 })
-
+    
             # Calculate fanout-adjusted metrics
-            base_energy_fJ = base_P_ctrl * power_scale * 10e-9 * 1e15  # 10ns pulse, convert to fJ
+            base_energy_fJ = effective_P_ctrl_W * pulse_duration_s * 1e15  # W * s * 1e15 = fJ
             fanout_adjusted_energy_fJ = base_energy_fJ * fanout  # Total energy for parallel ops
             
             # Calculate effective cascade depth with fanout
@@ -393,7 +391,7 @@ class ExperimentController:
                 effective_depth = max(1, int(n_stages / np.sqrt(fanout)))
             else:
                 effective_depth = n_stages
-
+    
             # Apply thresholding
             thr = 0.5
             if (threshold_mode or "").lower() == "soft":
@@ -403,7 +401,7 @@ class ExperimentController:
                     "logic_out_soft": logic_soft,
                     "min_contrast_dB": 10 * np.log10(max(outputs) / max(min(outputs), 1e-12)),
                     "power_scale_factor": power_scale,
-                    "effective_P_ctrl_mW": base_P_ctrl * power_scale * 1e3,
+                    "effective_P_ctrl_mW": effective_P_ctrl_W * 1e3,
                     "details": output_details,
                     "fanout": fanout,
                     "split_loss_db": split_loss_db,
@@ -419,7 +417,7 @@ class ExperimentController:
                     "logic_out": logic_out,
                     "min_contrast_dB": 10 * np.log10(max(outputs) / max(min(outputs), 1e-12)),
                     "power_scale_factor": power_scale,
-                    "effective_P_ctrl_mW": base_P_ctrl * power_scale * 1e3,
+                    "effective_P_ctrl_mW": effective_P_ctrl_W * 1e3,
                     "details": output_details,
                     "fanout": fanout,
                     "split_loss_db": split_loss_db,

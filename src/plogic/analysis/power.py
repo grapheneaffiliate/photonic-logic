@@ -209,19 +209,14 @@ def compute_power_report(cfg: PowerInputs) -> PowerReport:
             # Use relative tolerance for better floating-point comparison
             if abs(dn_dT - 3.0e-4) / 3.0e-4 < 0.01:  # AlGaAs (within 1%)
                 platform_thresholds = {'ok': 0.5, 'caution': 2.0}  # Higher tolerance for III-V
-                platform_name = "AlGaAs"
             elif abs(dn_dT - 1.8e-4) / 1.8e-4 < 0.01:  # Silicon (within 1%)
                 platform_thresholds = {'ok': 0.1, 'caution': 0.5}  # TPA sensitive
-                platform_name = "Si"
             elif abs(dn_dT - 2.5e-5) / 2.5e-5 < 0.01:  # SiN (within 1%)
                 platform_thresholds = {'ok': 1.0, 'caution': 5.0}  # Very stable
-                platform_name = "SiN"
             else:
                 platform_thresholds = {'ok': 0.2, 'caution': 1.0}  # Conservative default
-                platform_name = "unknown"
         else:
             platform_thresholds = {'ok': 0.2, 'caution': 1.0}  # Conservative default
-            platform_name = "unknown"
         
         # Apply platform-specific thermal assessment
         if thermal_ratio < platform_thresholds['ok']:
