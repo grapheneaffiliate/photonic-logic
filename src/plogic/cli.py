@@ -4,7 +4,7 @@ import importlib.metadata
 import json
 import math
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -41,6 +41,182 @@ def main_callback(
 
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help())
+
+
+@app.command("demo")
+def demo(
+    gate: str = typer.Option("XOR", "--gate", help="Logic gate type (AND, OR, XOR, NAND, NOR, XNOR)"),
+    platform: str = typer.Option("Si", "--platform", help="Material platform (Si, SiN, AlGaAs)"),
+    threshold: str = typer.Option("hard", "--threshold", help="Threshold type (hard, soft)"),
+    output: str = typer.Option("json", "--output", help="Output format (json, truth-table, csv)"),
+    p_high_mw: float = typer.Option(1.0, "--P-high-mW", help="High control power in mW"),
+    pulse_ns: float = typer.Option(1.0, "--pulse-ns", help="Pulse duration in ns"),
+    coupling_eta: float = typer.Option(0.9, "--coupling-eta", help="Coupling efficiency"),
+    link_length_um: float = typer.Option(50.0, "--link-length-um", help="Link length in um"),
+) -> None:
+    """
+    Demonstrate logic gate operation with specified parameters.
+    """
+    # Create device
+    dev = PhotonicMolecule()
+    
+    # Configure control parameters
+    P_ctrl_low = 0.0
+    P_ctrl_high = p_high_mw * 1e-3  # Convert mW to W
+    
+    # Generate truth table for the gate
+    gate_upper = gate.upper()
+    truth_table = []
+    
+    for a in [0, 1]:
+        for b in [0, 1]:
+            # Determine control power based on inputs
+            if gate_upper in ["AND", "NAND"]:
+                P_ctrl = P_ctrl_high if (a == 1 and b == 1) else P_ctrl_low
+            elif gate_upper in ["OR", "NOR"]:
+                P_ctrl = P_ctrl_high if (a == 1 or b == 1) else P_ctrl_low
+            elif gate_upper in ["XOR", "XNOR"]:
+                P_ctrl = P_ctrl_high if (a != b) else P_ctrl_low
+            else:
+                P_ctrl = P_ctrl_low
+            
+            # Get device response
+            resp = dev.steady_state_response(dev.omega0, P_ctrl)
+            T_through = resp["T_through"]
+            
+            # Apply threshold
+            if threshold == "soft":
+                output_val = sigmoid(T_through - 0.5, 20.0)
+            else:
+                output_val = 1 if T_through > 0.5 else 0
+            
+            # Invert for NAND, NOR, XNOR
+            if gate_upper in ["NAND", "NOR", "XNOR"]:
+                output_val = 1 - output_val
+            
+            truth_table.append({
+                "A": a,
+                "B": b,
+                "P_ctrl_mW": P_ctrl * 1e3,
+                "T_through": T_through,
+                "Output": output_val,
+                "Gate": gate_upper,
+                "Platform": platform,
+                "Threshold": threshold
+            })
+    
+    # Output results
+    if output == "truth-table" or output == "csv":
+        df = pd.DataFrame(truth_table)
+        if output == "csv":
+            df.to_csv("truth_table.csv", index=False)
+            typer.echo("Saved truth table to truth_table.csv")
+        else:
+            typer.echo(df.to_string(index=False))
+    else:
+        result = {
+            "gate": gate_upper,
+            "platform": platform,
+            "threshold": threshold,
+            "parameters": {
+                "P_high_mW": p_high_mw,
+                "pulse_ns": pulse_ns,
+                "coupling_eta": coupling_eta,
+                "link_length_um": link_length_um
+            },
+            "truth_table": truth_table
+        }
+        typer.echo(json.dumps(result, indent=2))
+
+
+@app.command("cascade")
+def cascade(
+    stages: int = typer.Option(2, "--stages", help="Number of cascaded stages"),
+    platform: Optional[str] = typer.Option(None, "--platform", help="Material platform (Si, SiN, AlGaAs)"),
+    fanout: int = typer.Option(1, "--fanout", help="Fanout degree for parallelism"),
+    split_loss_db: float = typer.Option(0.5, "--split-loss-db", help="Splitting loss in dB"),
+    hybrid: bool = typer.Option(False, "--hybrid", help="Use hybrid platform (AlGaAs/SiN)"),
+    routing_fraction: float = typer.Option(0.5, "--routing-fraction", help="Fraction of routing vs logic (hybrid only)"),
+    report: Optional[str] = typer.Option(None, "--report", help="Report type (power, timing, all)"),
+    p_high_mw: float = typer.Option(1.0, "--P-high-mW", help="High control power in mW"),
+    pulse_ns: float = typer.Option(1.0, "--pulse-ns", help="Pulse duration in ns"),
+    coupling_eta: float = typer.Option(0.9, "--coupling-eta", help="Coupling efficiency"),
+    link_length_um: float = typer.Option(50.0, "--link-length-um", help="Link length in um"),
+    include_2pa: bool = typer.Option(False, "--include-2pa", help="Include two-photon absorption"),
+    auto_timing: bool = typer.Option(False, "--auto-timing", help="Auto-optimize timing"),
+    show_resolved: bool = typer.Option(False, "--show-resolved", help="Show resolved parameters"),
+    n2: Optional[float] = typer.Option(None, "--n2", help="Override nonlinear index"),
+    q_factor: Optional[float] = typer.Option(None, "--q-factor", help="Override Q-factor"),
+) -> None:
+    """
+    Simulate cascade with advanced options including fanout and hybrid platforms.
+    """
+    dev = PhotonicMolecule()
+    
+    # Configure platform
+    platform_name = "Default"
+    if hybrid:
+        platform_name = "Hybrid-AlGaAs/SiN"
+    elif platform:
+        platform_name = platform
+    
+    # Apply overrides
+    if n2 is not None:
+        dev.n2 = n2
+    if q_factor is not None:
+        dev.Q = q_factor
+    
+    # Run cascade simulation
+    ctl = ExperimentController(dev)
+    res = ctl.test_cascade(n_stages=stages)
+    
+    # Add platform and configuration info
+    for gate_type in res:
+        res[gate_type]["platform"] = platform_name
+        res[gate_type]["fanout"] = fanout
+        res[gate_type]["split_loss_db"] = split_loss_db
+        res[gate_type]["effective_cascade_depth"] = stages
+        
+        # Calculate fanout-adjusted metrics
+        if fanout > 1:
+            # Fanout reduces effective depth but adds splitting loss
+            effective_depth = max(1, stages // fanout)
+            split_efficiency = 10 ** (-split_loss_db / 10)
+            
+            res[gate_type]["effective_cascade_depth"] = effective_depth
+            res[gate_type]["split_efficiency"] = split_efficiency
+            res[gate_type]["fanout_adjusted_energy_fJ"] = res[gate_type].get("base_energy_fJ", 10000) * split_efficiency
+        
+        # Add hybrid platform info
+        if hybrid:
+            res[gate_type]["routing_fraction"] = routing_fraction
+            res[gate_type]["logic_fraction"] = 1 - routing_fraction
+    
+    # Add power report if requested
+    if report == "power":
+        power_summary = {
+            "total_power_mW": p_high_mw,
+            "pulse_energy_fJ": p_high_mw * pulse_ns,
+            "platform": platform_name,
+            "coupling_efficiency": coupling_eta,
+            "link_length_um": link_length_um
+        }
+        res["power_report"] = power_summary
+    
+    # Show resolved parameters if requested
+    if show_resolved:
+        resolved_params = {
+            "n2": dev.n2,
+            "Q_factor": dev.Q,
+            "omega0": dev.omega0,
+            "alpha": dev.alpha,
+            "platform": platform_name,
+            "fanout": fanout,
+            "stages": stages
+        }
+        res["resolved_parameters"] = resolved_params
+    
+    typer.echo(json.dumps(res, indent=2))
 
 
 @app.command("characterize")
@@ -91,19 +267,6 @@ def truth_table(
     typer.echo(f"Wrote {out}")
 
 
-@app.command("cascade")
-def cascade(
-    stages: int = typer.Option(2, "--stages", help="Number of cascaded stages"),
-) -> None:
-    """
-    Simulate simple cascade outputs and print JSON.
-    """
-    dev = PhotonicMolecule()
-    ctl = ExperimentController(dev)
-    res = ctl.test_cascade(n_stages=stages)
-    typer.echo(json.dumps(res, indent=2))
-
-
 @app.command("benchmark")
 def benchmark(
     metric: str = typer.Option(
@@ -143,6 +306,101 @@ def benchmark(
         return
 
     typer.echo(json.dumps({"error": f"Unknown metric: {metric}"}, indent=2))
+
+
+@app.command("sweep")
+def sweep(
+    platforms: List[str] = typer.Option([], "--platforms", help="Material platforms to sweep (Si, SiN, AlGaAs)"),
+    fanout: List[int] = typer.Option([], "--fanout", help="Fanout values to sweep"),
+    split_loss_db: List[float] = typer.Option([], "--split-loss-db", help="Split loss values to sweep (dB)"),
+    routing_fraction: List[float] = typer.Option([], "--routing-fraction", help="Routing fraction values to sweep"),
+    p_high_mw: List[float] = typer.Option([], "--P-high-mW", help="High power values to sweep (mW)"),
+    pulse_ns: List[float] = typer.Option([], "--pulse-ns", help="Pulse duration values to sweep (ns)"),
+    stages: List[int] = typer.Option([2], "--stages", help="Stage count values to sweep"),
+    csv: Optional[Path] = typer.Option(None, "--csv", help="Output CSV file path"),
+    gate: str = typer.Option("XOR", "--gate", help="Logic gate to analyze"),
+) -> None:
+    """
+    Perform parameter sweeps and generate comparison data.
+    """
+    import itertools
+    
+    # Set defaults if no values provided
+    if not platforms:
+        platforms = ["Si"]
+    if not fanout:
+        fanout = [1]
+    if not split_loss_db:
+        split_loss_db = [0.5]
+    if not routing_fraction:
+        routing_fraction = [0.5]
+    if not p_high_mw:
+        p_high_mw = [1.0]
+    if not pulse_ns:
+        pulse_ns = [1.0]
+    
+    results = []
+    
+    # Generate all combinations
+    for platform, fo, split_loss, routing_frac, p_high, pulse_dur, stage_count in itertools.product(
+        platforms, fanout, split_loss_db, routing_fraction, p_high_mw, pulse_ns, stages
+    ):
+        # Create device
+        dev = PhotonicMolecule()
+        
+        # Configure platform
+        platform_name = platform
+        hybrid = False
+        
+        # Check if we should use hybrid mode (when routing_fraction != 0.5 and platform is not explicitly set)
+        if routing_frac != 0.5 and len(platforms) == 1 and platforms[0] in ["Si", "SiN", "AlGaAs"]:
+            hybrid = True
+            platform_name = f"Hybrid-{platform}/SiN"
+        
+        # Run cascade simulation
+        ctl = ExperimentController(dev)
+        res = ctl.test_cascade(n_stages=stage_count)
+        
+        # Extract results for the specified gate
+        gate_upper = gate.upper()
+        if gate_upper in res:
+            gate_res = res[gate_upper]
+            
+            # Calculate metrics
+            effective_depth = max(1, stage_count // fo) if fo > 1 else stage_count
+            split_efficiency = 10 ** (-split_loss / 10) if fo > 1 else 1.0
+            base_energy = gate_res.get("base_energy_fJ", 10000)
+            adjusted_energy = base_energy * split_efficiency
+            
+            result_row = {
+                "platform": platform_name,
+                "fanout": fo,
+                "split_loss_db": split_loss,
+                "routing_fraction": routing_frac if hybrid else None,
+                "P_high_mW": p_high,
+                "pulse_ns": pulse_dur,
+                "stages": stage_count,
+                "effective_depth": effective_depth,
+                "split_efficiency": split_efficiency,
+                "min_contrast_dB": gate_res.get("min_contrast_dB", 0),
+                "base_energy_fJ": base_energy,
+                "adjusted_energy_fJ": adjusted_energy,
+                "pulse_energy_fJ": p_high * pulse_dur,
+                "gate": gate_upper,
+                "hybrid": hybrid
+            }
+            
+            results.append(result_row)
+    
+    # Output results
+    if csv:
+        df = pd.DataFrame(results)
+        csv.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(csv, index=False)
+        typer.echo(f"Saved sweep results to {csv}")
+        typer.echo(f"Generated {len(results)} parameter combinations")
+    else:
+        typer.echo(json.dumps(results, indent=2))
 
 
 @app.command("visualize")
