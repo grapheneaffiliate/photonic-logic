@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import typer
 
@@ -18,6 +19,7 @@ from .controller import (
 from .materials.hybrid import HybridPlatform
 from .materials.platforms import PlatformDB
 from .utils.switching import sigmoid
+from .optimization.photonic_objectives import run_photonic_optimization, create_photonic_optimizer
 
 # Keep help string consistent with smoke test expectations
 app = typer.Typer(
@@ -494,6 +496,97 @@ def sweep(
         typer.echo(f"Generated {len(results)} parameter combinations")
     else:
         typer.echo(json.dumps(results, indent=2))
+
+
+@app.command("optimize")
+def optimize(
+    objective: str = typer.Option("multi", "--objective", help="Optimization objective (energy, cascade, thermal, multi)"),
+    iterations: int = typer.Option(100, "--iterations", help="Number of DANTE optimization iterations"),
+    initial_samples: int = typer.Option(30, "--initial-samples", help="Number of initial random samples"),
+    samples_per_iter: int = typer.Option(5, "--samples-per-iter", help="Number of samples per DANTE iteration"),
+    energy_weight: float = typer.Option(0.4, "--energy-weight", help="Weight for energy objective (multi-objective only)"),
+    cascade_weight: float = typer.Option(0.3, "--cascade-weight", help="Weight for cascade objective (multi-objective only)"),
+    thermal_weight: float = typer.Option(0.2, "--thermal-weight", help="Weight for thermal objective (multi-objective only)"),
+    fabrication_weight: float = typer.Option(0.1, "--fabrication-weight", help="Weight for fabrication objective (multi-objective only)"),
+    dims: int = typer.Option(12, "--dims", help="Number of optimization dimensions"),
+    output: Optional[Path] = typer.Option(None, "--output", help="Output file for optimization results"),
+    verbose: bool = typer.Option(False, "--verbose", help="Verbose optimization output"),
+) -> None:
+    """
+    Run DANTE-powered AI optimization for photonic logic circuits.
+    
+    Automatically discovers optimal configurations using deep active learning.
+    Supports single and multi-objective optimization across energy, cascade depth, thermal safety, and fabrication feasibility.
+    """
+    try:
+        typer.echo(f"🚀 Starting DANTE optimization for photonic logic circuits...")
+        typer.echo(f"Objective: {objective}")
+        typer.echo(f"Iterations: {iterations}, Initial samples: {initial_samples}")
+        typer.echo(f"Dimensions: {dims}")
+        
+        if objective == "multi":
+            typer.echo(f"Multi-objective weights: Energy={energy_weight}, Cascade={cascade_weight}, Thermal={thermal_weight}, Fab={fabrication_weight}")
+        
+        # Run DANTE optimization
+        results = run_photonic_optimization(
+            objective_type=objective,
+            num_initial_samples=initial_samples,
+            num_acquisitions=iterations,
+            samples_per_acquisition=samples_per_iter,
+            energy_weight=energy_weight,
+            cascade_weight=cascade_weight,
+            thermal_weight=thermal_weight,
+            fabrication_weight=fabrication_weight,
+            dims=dims
+        )
+        
+        # Display results
+        typer.echo(f"\n✅ Optimization completed!")
+        typer.echo(f"Total evaluations: {results['total_evaluations']}")
+        typer.echo(f"Best score: {results['best_score']:.4f}")
+        
+        # Decode best parameters
+        best_params = results['best_parameters']
+        platforms = ["AlGaAs", "Si", "SiN"]
+        platform_idx = int(np.clip(best_params[0], 0, 2))
+        
+        typer.echo(f"\n🎯 Best Configuration:")
+        typer.echo(f"Platform: {platforms[platform_idx]}")
+        typer.echo(f"Power: {best_params[1]:.3f} mW")
+        typer.echo(f"Pulse: {best_params[2]:.3f} ns")
+        typer.echo(f"Coupling: {best_params[3]:.3f}")
+        typer.echo(f"Link length: {best_params[4]:.1f} μm")
+        typer.echo(f"Fanout: {int(best_params[5])}")
+        typer.echo(f"Split loss: {best_params[6]:.2f} dB")
+        typer.echo(f"Stages: {int(best_params[7])}")
+        
+        if dims >= 12 and len(best_params) >= 12:
+            typer.echo(f"Hybrid: {'Yes' if best_params[8] > 0.5 else 'No'}")
+            if best_params[8] > 0.5:
+                typer.echo(f"Routing fraction: {best_params[9]:.2f}")
+        
+        # Save results if requested
+        if output:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            with open(output, 'w') as f:
+                json.dump(results, f, indent=2, default=str)
+            typer.echo(f"\n💾 Results saved to {output}")
+        
+        # Show optimization history if verbose
+        if verbose:
+            typer.echo(f"\n📈 Optimization History:")
+            for i, sol in enumerate(results['optimization_history'][-5:]):  # Last 5 iterations
+                typer.echo(f"Iter {sol['iteration']}: Score={sol['best_score']:.4f}, Evals={sol['num_evaluations']}")
+        
+    except ImportError as e:
+        typer.echo(f"❌ Error: DANTE not properly installed. Please install DANTE first:")
+        typer.echo(f"pip install git+https://github.com/Bop2000/DANTE.git")
+        typer.echo(f"Error details: {e}")
+    except Exception as e:
+        typer.echo(f"❌ Optimization failed: {e}")
+        if verbose:
+            import traceback
+            typer.echo(traceback.format_exc())
 
 
 @app.command("visualize")
