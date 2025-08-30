@@ -1,0 +1,790 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.18">
+    
+    
+      
+        <title>Limitations and Roadmap for Photonic-Logic Toolkit - Photonic Logic</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.7e37652d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#limitations-and-roadmap-for-photonic-logic-toolkit" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Photonic Logic" class="md-header__button md-logo" aria-label="Photonic Logic" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Photonic Logic
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Limitations and Roadmap for Photonic-Logic Toolkit
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/grapheneaffiliate/photonic-logic" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    grapheneaffiliate/photonic-logic
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Photonic Logic" class="md-nav__button md-logo" aria-label="Photonic Logic" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Photonic Logic
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/grapheneaffiliate/photonic-logic" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    grapheneaffiliate/photonic-logic
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide_v2.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Guide v2.2
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide_v1.1_annotated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Guide v1.1 (annotated)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#current-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Current Limitations
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Current Limitations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-extinction-ratio-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Extinction Ratio Modes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Extinction Ratio Modes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#side-by-side-comparison-example-xor-gate-on-algaas-platform" class="md-nav__link">
+    <span class="md-ellipsis">
+      Side-by-Side Comparison (Example: XOR Gate on AlGaAs Platform)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-fanout-limitation" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Fanout Limitation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-missing-sin-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Missing SiN Integration
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#visual-architecture-diagrams" class="md-nav__link">
+    <span class="md-ellipsis">
+      Visual Architecture Diagrams
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Visual Architecture Diagrams">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fanout-impact-on-cascade-depth" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fanout Impact on Cascade Depth
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hybrid-material-routing-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      Hybrid Material Routing Architecture
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#roadmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      Roadmap
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Roadmap">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-short-term-next-release-v20" class="md-nav__link">
+    <span class="md-ellipsis">
+      Phase 1: Short-Term (Next Release - v2.0)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-medium-term-v21-25" class="md-nav__link">
+    <span class="md-ellipsis">
+      Phase 2: Medium-Term (v2.1-2.5)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-long-term-v30" class="md-nav__link">
+    <span class="md-ellipsis">
+      Phase 3: Long-Term (v3.0+)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-guidelines" class="md-nav__link">
+    <span class="md-ellipsis">
+      Implementation Guidelines
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implementation Guidelines">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#for-engineers" class="md-nav__link">
+    <span class="md-ellipsis">
+      For Engineers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#for-researchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      For Researchers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#for-software-developers" class="md-nav__link">
+    <span class="md-ellipsis">
+      For Software Developers
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#performance-targets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Performance Targets
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Performance Targets">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#current-performance-v1x" class="md-nav__link">
+    <span class="md-ellipsis">
+      Current Performance (v1.x)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#target-performance-v20" class="md-nav__link">
+    <span class="md-ellipsis">
+      Target Performance (v2.0)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ultimate-goals-v30" class="md-nav__link">
+    <span class="md-ellipsis">
+      Ultimate Goals (v3.0+)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references-and-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      References and Resources
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="limitations-and-roadmap-for-photonic-logic-toolkit">Limitations and Roadmap for Photonic-Logic Toolkit<a class="headerlink" href="#limitations-and-roadmap-for-photonic-logic-toolkit" title="Permanent link">&para;</a></h1>
+<h2 id="current-limitations">Current Limitations<a class="headerlink" href="#current-limitations" title="Permanent link">&para;</a></h2>
+<h3 id="1-extinction-ratio-modes">1. Extinction Ratio Modes<a class="headerlink" href="#1-extinction-ratio-modes" title="Permanent link">&para;</a></h3>
+<p>The toolkit supports two modes for extinction ratio (ER) calculations:</p>
+<ul>
+<li><strong>Realistic Mode</strong> (default): Uses measured statistics from simulations, reflecting actual physics including leakage (e.g., worst_off_norm=0.01 → 20 dB contrast). This mode is ideal for engineering assessments and fabrication planning.</li>
+<li><strong>Idealized Mode</strong>: Assumes a theoretical floor (e.g., worst_off_norm=1e-12 → 120 dB contrast). Useful for presentations and theoretical demonstrations but may significantly overestimate real-world performance.</li>
+</ul>
+<p>⚠️ <strong>WARNING</strong>: Idealized mode assumes perfect conditions and does not reflect fabrication realities. Always use realistic mode for production designs and engineering assessments.</p>
+<h4 id="side-by-side-comparison-example-xor-gate-on-algaas-platform">Side-by-Side Comparison (Example: XOR Gate on AlGaAs Platform)<a class="headerlink" href="#side-by-side-comparison-example-xor-gate-on-algaas-platform" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Realistic Mode</th>
+<th>Idealized Mode</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Floor Contrast (dB)</td>
+<td>20.0</td>
+<td>120.0</td>
+<td>Realistic shows actual leakage</td>
+</tr>
+<tr>
+<td>Target Margin (dB)</td>
+<td>-1.0</td>
+<td>99.0</td>
+<td>Realistic may not meet target</td>
+</tr>
+<tr>
+<td>Meets Extinction</td>
+<td>False</td>
+<td>True</td>
+<td>Critical for fab decisions</td>
+</tr>
+<tr>
+<td>Worst Off Norm</td>
+<td>0.01</td>
+<td>1e-12</td>
+<td>11 orders of magnitude difference</td>
+</tr>
+<tr>
+<td>Use Case</td>
+<td>Engineering/Fab</td>
+<td>Demo/Theory</td>
+<td>Choose based on purpose</td>
+</tr>
+<tr>
+<td>Reliability</td>
+<td>High</td>
+<td>Low</td>
+<td>Realistic matches fab results</td>
+</tr>
+</tbody>
+</table>
+<h3 id="2-fanout-limitation">2. Fanout Limitation<a class="headerlink" href="#2-fanout-limitation" title="Permanent link">&para;</a></h3>
+<p><strong>Current State</strong>: The system operates with fanout=1 (single output per gate), limiting parallelism and requiring sequential processing.</p>
+<p><strong>Impact</strong>:
+- Sequential processing increases cascade depth
+- No parallel computation capability
+- Limited throughput for complex logic operations
+- Energy inefficiency for operations requiring multiple copies</p>
+<h3 id="3-missing-sin-integration">3. Missing SiN Integration<a class="headerlink" href="#3-missing-sin-integration" title="Permanent link">&para;</a></h3>
+<p><strong>Current State</strong>: Limited to single-material systems (typically AlGaAs or similar high-index materials).</p>
+<p><strong>Missing Benefits</strong>:
+- No hybrid low-loss routing (SiN: ~0.1 dB/cm vs AlGaAs: ~1.0 dB/cm)
+- Cannot leverage material-specific advantages
+- Higher overall system losses
+- Limited design flexibility</p>
+<h2 id="visual-architecture-diagrams">Visual Architecture Diagrams<a class="headerlink" href="#visual-architecture-diagrams" title="Permanent link">&para;</a></h2>
+<h3 id="fanout-impact-on-cascade-depth">Fanout Impact on Cascade Depth<a class="headerlink" href="#fanout-impact-on-cascade-depth" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>Current (Fanout=1):
+┌──────┐    ┌──────┐    ┌──────┐
+│Gate 1│───►│Gate 2│───►│Gate 3│  Depth = 33 stages
+└──────┘    └──────┘    └──────┘
+
+Proposed (Fanout=2):
+┌──────┐    ┌──────┐
+│Gate 1│───►│Gate 2│  Depth ≈ 16-20 stages
+└───┬──┘    └──────┘  (with 0.5 dB split loss)
+    │       ┌──────┐
+    └──────►│Gate 3│  Parallel processing enabled
+            └──────┘
+
+Fanout=3+ Benefits:
+<span class="k">-</span> Depth reduction: ~33/√fanout
+<span class="k">-</span> Energy cost: E_op × fanout (total)
+<span class="k">-</span> Throughput: fanout × single path
+</code></pre></div>
+
+<h3 id="hybrid-material-routing-architecture">Hybrid Material Routing Architecture<a class="headerlink" href="#hybrid-material-routing-architecture" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="n">Current</span><span class="w"> </span><span class="n">Single</span><span class="o">-</span><span class="n">Material</span><span class="w"> </span><span class="n">System</span><span class="o">:</span>
+<span class="p">[</span><span class="n">AlGaAs</span><span class="w"> </span><span class="n">Logic</span><span class="p">]</span><span class="w"> </span><span class="err">──</span><span class="mf">1.0</span><span class="w"> </span><span class="n">dB</span><span class="o">/</span><span class="n">cm</span><span class="err">──►</span><span class="w"> </span><span class="p">[</span><span class="n">AlGaAs</span><span class="w"> </span><span class="n">Logic</span><span class="p">]</span><span class="w"> </span><span class="err">──</span><span class="mf">1.0</span><span class="w"> </span><span class="n">dB</span><span class="o">/</span><span class="n">cm</span><span class="err">──►</span><span class="w"> </span><span class="p">[</span><span class="n">AlGaAs</span><span class="w"> </span><span class="n">Logic</span><span class="p">]</span>
+<span class="w">                </span><span class="n">High</span><span class="w"> </span><span class="n">loss</span><span class="w">                      </span><span class="n">High</span><span class="w"> </span><span class="n">loss</span>
+
+<span class="n">Proposed</span><span class="w"> </span><span class="n">Hybrid</span><span class="w"> </span><span class="n">System</span><span class="o">:</span>
+<span class="p">[</span><span class="n">AlGaAs</span><span class="w"> </span><span class="n">Logic</span><span class="p">]</span><span class="w"> </span><span class="err">──►</span><span class="w"> </span><span class="p">[</span><span class="n">SiN</span><span class="w"> </span><span class="n">Router</span><span class="p">]</span><span class="w"> </span><span class="err">──</span><span class="mf">0.1</span><span class="w"> </span><span class="n">dB</span><span class="o">/</span><span class="n">cm</span><span class="err">──►</span><span class="w"> </span><span class="p">[</span><span class="n">AlGaAs</span><span class="w"> </span><span class="n">Logic</span><span class="p">]</span>
+<span class="w">    </span><span class="p">(</span><span class="n">XPM</span><span class="p">)</span><span class="w">         </span><span class="p">(</span><span class="n">Low</span><span class="o">-</span><span class="n">loss</span><span class="w"> </span><span class="n">routing</span><span class="p">)</span><span class="w">              </span><span class="p">(</span><span class="n">XPM</span><span class="p">)</span>
+
+<span class="nl">Benefits</span><span class="p">:</span>
+<span class="o">-</span><span class="w"> </span><span class="mi">10</span><span class="err">×</span><span class="w"> </span><span class="n">lower</span><span class="w"> </span><span class="n">propagation</span><span class="w"> </span><span class="n">loss</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">routing</span><span class="w"> </span><span class="n">sections</span>
+<span class="o">-</span><span class="w"> </span><span class="n">Maintain</span><span class="w"> </span><span class="n">high</span><span class="w"> </span><span class="n">XPM</span><span class="w"> </span><span class="n">efficiency</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">logic</span><span class="w"> </span><span class="n">sections</span>
+<span class="o">-</span><span class="w"> </span><span class="n">Optimal</span><span class="w"> </span><span class="n">material</span><span class="w"> </span><span class="n">usage</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">each</span><span class="w"> </span><span class="n">function</span>
+</code></pre></div>
+
+<h2 id="roadmap">Roadmap<a class="headerlink" href="#roadmap" title="Permanent link">&para;</a></h2>
+<h3 id="phase-1-short-term-next-release-v20">Phase 1: Short-Term (Next Release - v2.0)<a class="headerlink" href="#phase-1-short-term-next-release-v20" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] Document limitations and provide clear guidance</li>
+<li>[ ] Implement fanout&gt;1 capability with configurable splitting loss</li>
+<li>[ ] Add fanout-adjusted energy metrics (E_op × fanout)</li>
+<li>[ ] Create HybridPlatform class for material switching</li>
+<li>[ ] Add CLI warnings for idealized mode usage</li>
+<li>[ ] Comprehensive test suite for new features</li>
+</ul>
+<h3 id="phase-2-medium-term-v21-25">Phase 2: Medium-Term (v2.1-2.5)<a class="headerlink" href="#phase-2-medium-term-v21-25" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[ ] Routing optimization algorithms for minimal loss paths</li>
+<li>[ ] Multi-material parameter sweeps</li>
+<li>[ ] Advanced splitting topologies (tree, mesh)</li>
+<li>[ ] Thermal crosstalk modeling for dense integration</li>
+<li>[ ] Power budget optimization tools</li>
+</ul>
+<h3 id="phase-3-long-term-v30">Phase 3: Long-Term (v3.0+)<a class="headerlink" href="#phase-3-long-term-v30" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[ ] Complete noise modeling (shot, thermal, 1/f)</li>
+<li>[ ] Process variation analysis</li>
+<li>[ ] GDS-II export for fabrication</li>
+<li>[ ] Integration with photonic EDA tools</li>
+<li>[ ] Machine learning optimization for gate placement</li>
+</ul>
+<h2 id="implementation-guidelines">Implementation Guidelines<a class="headerlink" href="#implementation-guidelines" title="Permanent link">&para;</a></h2>
+<h3 id="for-engineers">For Engineers<a class="headerlink" href="#for-engineers" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Always use <code>--realistic-extinction</code> for production designs</li>
+<li>Include 3-5 dB margin for fabrication tolerances</li>
+<li>Consider fanout requirements early in design phase</li>
+<li>Plan for hybrid integration from the start</li>
+</ol>
+<h3 id="for-researchers">For Researchers<a class="headerlink" href="#for-researchers" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Document which mode was used in publications</li>
+<li>Provide both realistic and idealized results when relevant</li>
+<li>Consider fanout impact on system-level metrics</li>
+<li>Explore hybrid architectures for optimal performance</li>
+</ol>
+<h3 id="for-software-developers">For Software Developers<a class="headerlink" href="#for-software-developers" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Default to realistic mode in all new features</li>
+<li>Maintain backward compatibility with fanout=1</li>
+<li>Ensure clear separation between material systems</li>
+<li>Add comprehensive tests for all configurations</li>
+</ol>
+<h2 id="performance-targets">Performance Targets<a class="headerlink" href="#performance-targets" title="Permanent link">&para;</a></h2>
+<h3 id="current-performance-v1x">Current Performance (v1.x)<a class="headerlink" href="#current-performance-v1x" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Extinction Ratio: 20 dB (realistic)</li>
+<li>Cascade Depth: 33 stages</li>
+<li>Energy/Operation: ~1 pJ</li>
+<li>Propagation Loss: 1.0 dB/cm</li>
+</ul>
+<h3 id="target-performance-v20">Target Performance (v2.0)<a class="headerlink" href="#target-performance-v20" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Extinction Ratio: 21+ dB (realistic, optimized)</li>
+<li>Cascade Depth: 16-20 stages (fanout=2)</li>
+<li>Energy/Operation: ~0.5 pJ (with optimization)</li>
+<li>Propagation Loss: 0.3 dB/cm (hybrid average)</li>
+</ul>
+<h3 id="ultimate-goals-v30">Ultimate Goals (v3.0+)<a class="headerlink" href="#ultimate-goals-v30" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Extinction Ratio: 25+ dB (realistic, advanced materials)</li>
+<li>Cascade Depth: &lt;10 stages (fanout=4+)</li>
+<li>Energy/Operation: &lt;100 fJ</li>
+<li>Propagation Loss: &lt;0.2 dB/cm (optimized hybrid)</li>
+</ul>
+<h2 id="references-and-resources">References and Resources<a class="headerlink" href="#references-and-resources" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Extinction Ratio Measurements: [IEEE Photonics Standards]</li>
+<li>SiN Platform Specifications: [AIM Photonics PDK]</li>
+<li>Hybrid Integration Techniques: [Nature Photonics Reviews]</li>
+<li>Fanout Architectures: [Optical Computing Literature]</li>
+</ul>
+<hr />
+<p><em>Last Updated: 2025-08-28</em>
+<em>Version: 1.0</em>
+<em>Contact: photonic-logic-dev@example.com</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.sections", "navigation.instant", "content.code.copy"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.92b07e13.min.js"></script>
+      
+    
+  </body>
+</html>

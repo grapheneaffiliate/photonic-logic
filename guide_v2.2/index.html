@@ -1,0 +1,811 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="../guide_v1.1_annotated/">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.18">
+    
+    
+      
+        <title>Guide v2.2 - Photonic Logic</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.7e37652d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#programmable-photonic-logic-complete-implementation-guide-v22" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Photonic Logic" class="md-header__button md-logo" aria-label="Photonic Logic" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Photonic Logic
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Guide v2.2
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/grapheneaffiliate/photonic-logic" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    grapheneaffiliate/photonic-logic
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Photonic Logic" class="md-nav__button md-logo" aria-label="Photonic Logic" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Photonic Logic
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/grapheneaffiliate/photonic-logic" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    grapheneaffiliate/photonic-logic
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Guide v2.2
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Guide v2.2
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#from-design-to-quantum-a-practical-builders-manual" class="md-nav__link">
+    <span class="md-ellipsis">
+      From Design to Quantum: A Practical Builder's Manual
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#executive-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      Executive Summary
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#part-i-theory-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      Part I: Theory &amp; Design
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Part I: Theory &amp; Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-fundamental-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Fundamental Architecture
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Fundamental Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-the-photonic-molecule" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.1 The Photonic Molecule
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-coupled-mode-equations" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.2 Coupled Mode Equations
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-design-specifications" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.3 Design Specifications
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#14-quick-design-card" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.4 Quick Design Card
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-nonlinear-switching-mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Nonlinear Switching Mechanism
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Nonlinear Switching Mechanism">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-power-enhancement-in-cavity" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.1 Power Enhancement in Cavity
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-cross-phase-modulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.2 Cross-Phase Modulation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-effective-nonlinearity-enhancement" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.3 Effective Nonlinearity Enhancement
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide_v1.1_annotated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Guide v1.1 (annotated)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#from-design-to-quantum-a-practical-builders-manual" class="md-nav__link">
+    <span class="md-ellipsis">
+      From Design to Quantum: A Practical Builder's Manual
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#executive-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      Executive Summary
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#part-i-theory-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      Part I: Theory &amp; Design
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Part I: Theory &amp; Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-fundamental-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Fundamental Architecture
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Fundamental Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-the-photonic-molecule" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.1 The Photonic Molecule
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-coupled-mode-equations" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.2 Coupled Mode Equations
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-design-specifications" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.3 Design Specifications
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#14-quick-design-card" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.4 Quick Design Card
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-nonlinear-switching-mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Nonlinear Switching Mechanism
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Nonlinear Switching Mechanism">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-power-enhancement-in-cavity" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.1 Power Enhancement in Cavity
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-cross-phase-modulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.2 Cross-Phase Modulation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-effective-nonlinearity-enhancement" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.3 Effective Nonlinearity Enhancement
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="programmable-photonic-logic-complete-implementation-guide-v22">Programmable Photonic Logic: Complete Implementation Guide v2.2<a class="headerlink" href="#programmable-photonic-logic-complete-implementation-guide-v22" title="Permanent link">&para;</a></h1>
+<h2 id="from-design-to-quantum-a-practical-builders-manual">From Design to Quantum: A Practical Builder's Manual<a class="headerlink" href="#from-design-to-quantum-a-practical-builders-manual" title="Permanent link">&para;</a></h2>
+<hr />
+<h2 id="executive-summary">Executive Summary<a class="headerlink" href="#executive-summary" title="Permanent link">&para;</a></h2>
+<p>This document provides a complete, actionable pathway for building programmable all-optical logic gates where light controls light without electronic intermediaries. The approach scales from room-temperature pJ-switching to single-photon quantum operations, with immediate implementation via thin-film lithium niobate (TFLN) or AlGaAs photonic molecules. Every specification, equation, and code snippet has been verified for dimensional consistency and practical buildability.</p>
+<p><strong>Key Deliverables:</strong>
+- Room-temperature optical transistor with &lt;5 pJ switching energy
+- Cascadable logic gates (AND/OR/XOR) at 100 Mb/s
+- Clear upgrade path to single-photon quantum logic
+- Complete test framework with automated characterization</p>
+<hr />
+<h2 id="part-i-theory-design">Part I: Theory &amp; Design<a class="headerlink" href="#part-i-theory-design" title="Permanent link">&para;</a></h2>
+<h3 id="1-fundamental-architecture">1. Fundamental Architecture<a class="headerlink" href="#1-fundamental-architecture" title="Permanent link">&para;</a></h3>
+<h4 id="11-the-photonic-molecule">1.1 The Photonic Molecule<a class="headerlink" href="#11-the-photonic-molecule" title="Permanent link">&para;</a></h4>
+<p>Two coupled optical cavities form our fundamental computing element:</p>
+<p>$$\frac{H}{\hbar}=\sum_{i=A,B}\omega_i a_i^\dagger a_i+J(a_A^\dagger a_B+a_B^\dagger a_A)+\frac{K_i}{2}a_i^{\dagger 2}a_i^2+\chi\,a_A^\dagger a_A a_B^\dagger a_B$$</p>
+<p><strong>Physical interpretation:</strong>
+- <strong>J</strong>: Photon tunneling rate between cavities (target: 1-3 GHz)
+- <strong>κ</strong>: Photon loss rate (0.39 GHz for Q=5×10⁵)
+- <strong>χ</strong>: Cross-cavity photon-photon interaction
+- <strong>K_i</strong>: Self-interaction within each cavity</p>
+<p><strong>Programmability criterion:</strong> |χ| or |K_i| ≥ κ enables strong optical switching</p>
+<h4 id="12-coupled-mode-equations">1.2 Coupled Mode Equations<a class="headerlink" href="#12-coupled-mode-equations" title="Permanent link">&para;</a></h4>
+<p>The system dynamics in the rotating frame:</p>
+<p>$$\begin{aligned}
+\dot{a}<em>A &amp;= \left(j\Delta_A - \frac{\kappa_A}{2}\right)a_A - jJa_B + \sqrt{\kappa</em>{eA}}s_{\text{in}} \
+\dot{a}<em>B &amp;= \left(j\Delta_B - \frac{\kappa_B}{2}\right)a_B - jJa_A \
+s</em>{\text{out}} &amp;= s_{\text{in}} - \sqrt{\kappa_{eA}}a_A
+\end{aligned}$$</p>
+<p>where all rates are in rad/s, Δᵢ represents detuning from resonance, and κᵢ = κ₀ᵢ + κₑᵢ (intrinsic + external loss).</p>
+<p><strong>Eigenfrequencies at Δ_A=Δ_B=0:</strong> (\Omega_\pm = -\tfrac{j}{4}(\kappa_A+\kappa_B) \pm \sqrt{J^2 - \left(\tfrac{\kappa_A-\kappa_B}{4}\right)^2}). <strong>Resolved splitting (real part):</strong> (2\,\Re{\sqrt{\cdot}}). For κ_A≈κ_B, splitting → 2J.</p>
+<h4 id="13-design-specifications">1.3 Design Specifications<a class="headerlink" href="#13-design-specifications" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Symbol</th>
+<th>Target Value</th>
+<th>Units</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wavelength</td>
+<td>λ₀</td>
+<td>1550</td>
+<td>nm</td>
+<td>C-band standard</td>
+</tr>
+<tr>
+<td>Quality Factor</td>
+<td>Q</td>
+<td>5×10⁵</td>
+<td>-</td>
+<td>Loaded Q</td>
+</tr>
+<tr>
+<td>Linewidth</td>
+<td>Δλ</td>
+<td>3.2</td>
+<td>pm</td>
+<td>From Q</td>
+</tr>
+<tr>
+<td>Coupling Rate</td>
+<td>J/2π</td>
+<td>1-3</td>
+<td>GHz</td>
+<td>Tunable via gap</td>
+</tr>
+<tr>
+<td>Loss Rate</td>
+<td>κ/2π</td>
+<td>0.39</td>
+<td>GHz</td>
+<td>Total cavity loss</td>
+</tr>
+<tr>
+<td>Mode Volume</td>
+<td>V_eff</td>
+<td>~(λ/n)³</td>
+<td>-</td>
+<td>Minimize for χ</td>
+</tr>
+<tr>
+<td>FSR</td>
+<td>-</td>
+<td>200-400</td>
+<td>GHz</td>
+<td>Mode spacing</td>
+</tr>
+<tr>
+<td>Coupling Gap</td>
+<td>g</td>
+<td>100-200</td>
+<td>nm</td>
+<td>Sets J</td>
+</tr>
+<tr>
+<td>XPM Coefficient</td>
+<td>g_XPM</td>
+<td>2-5</td>
+<td>GHz/mW</td>
+<td>Device-specific</td>
+</tr>
+</tbody>
+</table>
+<h4 id="14-quick-design-card">1.4 Quick Design Card<a class="headerlink" href="#14-quick-design-card" title="Permanent link">&para;</a></h4>
+<p>Nominal wavelength: λ₀ = 1550 nm (ω₀ = 2π·193.5 THz). Group index: n_g ≈ 4.2 (Si), 2.2 (Si₃N₄), 2.2 (TFLN ridge).
+Target Q (loaded): 5×10⁵ → κ/2π ≈ 0.39 GHz → linewidth Δλ ≈ 3.2 pm.
+Coupling: 2J/2π = 2–6 GHz (resolved splitting condition: 2J ≳ (κ_A+κ_B)/2).</p>
+<p>XPM switching criterion: |Δω_XPM| ≥ κ_B (design margin ×1.5 → 0.6–1.0 GHz).
+Heater tuning margin: ≥ 5× linewidth (≥ 15–20 pm) with S_ij/S_ii ≤ 0.1.</p>
+<p>Practical knobs</p>
+<p>Gap: 100–200 nm → J/2π ~ 0.5–5 GHz (tune per PDK).</p>
+<p>Coupling regime: near‑critical (κ_e ≈ κ₀).</p>
+<p>FSR: 200–400 GHz so signal/control on distinct longitudinal modes.</p>
+<h3 id="2-nonlinear-switching-mechanism">2. Nonlinear Switching Mechanism<a class="headerlink" href="#2-nonlinear-switching-mechanism" title="Permanent link">&para;</a></h3>
+<h4 id="21-power-enhancement-in-cavity">2.1 Power Enhancement in Cavity<a class="headerlink" href="#21-power-enhancement-in-cavity" title="Permanent link">&para;</a></h4>
+<p>Circulating photon number under resonant excitation:</p>
+<p>$$N_i = \frac{\kappa_{ei}}{(\Delta_i^2 + \kappa_i^2/4)} \cdot \frac{P_{\text{in},i}}{\hbar\omega_0}$$</p>
+<p>This enhancement factor can exceed 10³ for critically coupled high-Q cavities.</p>
+<h4 id="22-cross-phase-modulation">2.2 Cross-Phase Modulation<a class="headerlink" href="#22-cross-phase-modulation" title="Permanent link">&para;</a></h4>
+<p>Control photons in cavity A induce a frequency shift in cavity B:</p>
+<p>$$\Delta\omega_{\text{XPM},B} = \chi N_A = g_{\text{XPM}} P_{\text{ctrl}}$$</p>
+<p><strong>Switching criterion:</strong> |Δω_XPM| ≥ κ_B pushes signal off resonance</p>
+<h4 id="23-effective-nonlinearity-enhancement">2.3 Effective Nonlinearity Enhancement<a class="headerlink" href="#23-effective-nonlinearity-enhancement" title="Permanent link">&para;</a></h4>
+<p>For TFLN using cascaded χ²:χ²:
+$$\chi_{\text{eff}} = \frac{\chi^{(2)} \cdot \chi^{(2)}}{\Delta k} \cdot \frac{Q}{\pi}$$</p>
+<p>For AlGaAs using native χ³:
+$$\chi_{\text{eff}} = \chi^{(3)} \cdot \frac{Q}{\pi} \cdot \frac{c}{n^2 V_{\text{eff}}}$$</p>
+<p><strong>Model scope.</strong> The code uses steady-state CMT. It is accurate for pulses ≫ photon lifetime (τ≈1/κ ≈ 0.4 ns for κ/2π=0.39 GHz). For shorter/edge-rate-limited operation, integrate the time-domain CMT:</p>
+<p>$$
+\dot{\mathbf{a}}=M\,\mathbf{a}+\mathbf{b}(t)
+$$</p>
+<p>using <code>solve_ivp</code>, and measure rise/fall and intersymbol interference.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.sections", "navigation.instant", "content.code.copy"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.92b07e13.min.js"></script>
+      
+    
+  </body>
+</html>
