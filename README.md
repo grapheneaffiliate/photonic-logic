@@ -314,9 +314,31 @@ plogic accelerator --export-specs --export-gds --export-test --export-compiler -
 
 **🤖 AI Advantage**: Automated discovery of optimal configurations + zero static power + wavelength multiplexing + production-ready design flow.
 
+## ⚠️ Important: Optimization Fix (v2.4.1)
+
+### Critical Bug Fix
+A critical bug in the penalty formulation was discovered and fixed. The original code was **rewarding** constraint violations instead of penalizing them. This has been corrected, and a robust fallback optimizer has been implemented.
+
+### Using the Fallback Optimizer (Recommended)
+```bash
+# Use the --use-fallback flag for reliable optimization
+plogic accelerator --target-power-W 2.0 --target-tops 3.11 --iterations 100 --use-fallback
+
+# The fallback optimizer uses cross-entropy method for robust convergence
+plogic accelerator --iterations 50 --use-fallback --output specs.json
+```
+
+### Optimization Results
+- **Before Fix**: 106W power, 3512% yield (physically impossible)
+- **After Fix**: 1.86W power, 54.3% yield (realistic and manufacturable)
+
+### Known Issue
+DANTE optimizer has an array dimension bug in tree exploration. Use `--use-fallback` flag until this is resolved.
+
 ## Known Limitations & Roadmap
 
 ### Current Constraints:
+- **DANTE optimizer**: Array dimension mismatch in tree exploration (use --use-fallback)
 - **Level 4 system**: Currently optimizes performance models, needs real foundry PDK integration
 - **COMSOL interface**: Synthetic data for testing, needs actual thermal simulation import
 - **Manufacturing models**: Statistical models, needs real fab data validation

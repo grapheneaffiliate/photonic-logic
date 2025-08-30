@@ -251,39 +251,39 @@ class PhotonicAcceleratorOptimizer(ObjectiveFunction):
         self.lb = np.array([
             # Ring geometry (realistic bounds)
             32, 32, 8.0,
-            # Optical (realistic wavelength and power)
+            # Optical (FIXED: proper telecom wavelengths and realistic power)
             1530, 15, 12,
-            # Thermal (realistic heater power and timing)
-            30, 5e-6, 8.0,
-            # Manufacturing (realistic CD and yield)
-            210, 0.7, 0,
-            # Architecture (realistic lanes and clock)
-            12, 0.8, 256,
+            # Thermal (FIXED: realistic heater power and timing in microseconds)
+            30, 5.0, 8.0,
+            # Manufacturing (FIXED: realistic CD and yield)
+            200, 0.6, 0,
+            # Architecture (FIXED: realistic lanes and clock in GHz, not MHz)
+            12, 0.5, 256,
             # Power (mobile constraints)
             0.4, 0.15, 0.25,
-            # Performance (realistic targets)
-            2.5, 35, 8.0,
+            # Performance (FIXED: realistic targets)
+            1.0, 20, 8.0,
             # Integration (realistic test and calibration)
-            0, 1.2, 12, 0
+            0, 1.0, 8, 0
         ])
         
         self.ub = np.array([
             # Ring geometry
-            96, 96, 15.0,
-            # Optical
+            64, 64, 15.0,
+            # Optical (FIXED: telecom C-band only)
             1570, 35, 20,
-            # Thermal
-            80, 8e-6, 15.0,
-            # Manufacturing
-            280, 0.90, 2,
-            # Architecture
-            20, 1.5, 768,
+            # Thermal (FIXED: microseconds, not scientific notation)
+            80, 50.0, 15.0,
+            # Manufacturing (FIXED: standard silicon photonics CD range)
+            250, 0.85, 2,
+            # Architecture (FIXED: realistic clock frequencies)
+            25, 2.0, 768,
             # Power (strict mobile limits)
             0.7, 0.25, 0.45,
-            # Performance
-            4.0, 65, 15.0,
+            # Performance (FIXED: achievable targets)
+            5.0, 60, 15.0,
             # Integration
-            2, 2.5, 24, 2
+            2, 3.0, 32, 2
         ])
         
         self.tracker = Tracker(self.name + str(self.dims))
@@ -569,57 +569,62 @@ class PhotonicAcceleratorOptimizer(ObjectiveFunction):
         params = self._extract_parameters(x)
         result = self._run_system_simulation(params)
         
-        # STRICT MOBILE CONSTRAINTS - Hard limits for mobile deployment
-        total_power = result["total_power_W"]
-        peak_temp = result["peak_temp_C"]
-        
-        # Hard constraint violations return 0 (invalid configuration)
-        if total_power > self.config.total_power_budget_W:  # >2W invalid for mobile
-            composite_score = 0.0
-        elif peak_temp > 85.0:  # >85°C invalid for mobile
-            composite_score = 0.0
-        elif result["yield_factor"] < 0.5:  # <50% yield uneconomical
-            composite_score = 0.0
-        elif result["sustained_tops"] < 1.0:  # <1 TOPS insufficient performance
-            composite_score = 0.0
-        else:
-            # Valid configuration - compute composite score
-            power_efficiency = result["power_efficiency_tops_per_w"]
-            mobile_suitability = result["mobile_score"]
-            manufacturing_feasibility = result["manufacturing_score"]
-            cost_effectiveness = 100 / max(result["cost_per_tops"], 1.0)
-            
-            # Weighted composite score for mobile AI accelerator
-            composite_score = (
-                0.35 * power_efficiency +      # Power efficiency critical for mobile
-                0.25 * mobile_suitability +    # Mobile constraints (thermal, power)
-                0.25 * manufacturing_feasibility + # Yield and cost
-                0.15 * cost_effectiveness      # Economic viability
-            )
-        
+        # New: soft penalties with correct sign, then invert to a maximization score.
+        def relu(x: float) -> float:
+            return x if x > 0 else 0.0
+
+        # Primary objective: minimize total power (or energy if you have it)
+        primary_term = float(result.get("energy_J", result["total_power_W"]))
+
+        # Targets / caps
+        cap_power = float(self.config.total_power_budget_W)   # e.g., 2.0 W
+        cap_temp  = 85.0                                      # °C limit
+        min_tops  = float(self.config.target_sustained_tops)  # e.g., 3.11
+        min_yield = 0.5
+
+        # Metrics
+        total_power = float(result["total_power_W"])
+        peak_temp   = float(result["peak_temp_C"])
+        sustained_tops = float(result["sustained_tops"])
+        yield_factor   = float(result["yield_factor"])
+
+        # Correct penalty directions:
+        #  - For ≤ constraints: relu(measured - target)
+        #  - For ≥ constraints: relu(target   - measured)
+        p_power = relu(total_power   - cap_power)  # ≤ constraint
+        p_temp  = relu(peak_temp      - cap_temp)  # ≤ constraint
+        p_tops  = relu(min_tops       - sustained_tops)  # ≥ constraint
+        p_yield = relu(min_yield      - yield_factor)    # ≥ constraint
+
+        # Weights — crank power/temp hard so violations dominate.
+        W_POWER, W_TEMP, W_TOPS, W_YIELD = 1_000.0, 500.0, 200.0, 100.0
+
+        total_penalty = (
+            primary_term
+            + W_POWER * p_power
+            + W_TEMP  * p_temp
+            + W_TOPS  * p_tops
+            + W_YIELD * p_yield
+        )
+
+        # Turn "smaller is better" into a score to maximize.
+        composite_score = 10_000.0 / (total_penalty + 1.0)
+
         if track:
             self.tracker.track(composite_score, x)
-            # Track detailed metrics for analysis
             try:
                 self.tracker.track_metadata({
-                    "total_power_W": result["total_power_W"],
-                    "sustained_tops": result["sustained_tops"],
-                    "token_rate": result["token_rate_per_s"],
-                    "unit_cost": result["unit_cost_USD"],
-                    "yield_factor": result["yield_factor"],
-                    "thermal_feasible": result["thermal_feasible"],
-                    "mobile_score": result["mobile_score"],
-                    "mfg_score": result["manufacturing_score"],
-                    "constraint_violations": {
-                        "power_violation": total_power > self.config.total_power_budget_W,
-                        "thermal_violation": peak_temp > 85.0,
-                        "yield_violation": result["yield_factor"] < 0.5,
-                        "performance_violation": result["sustained_tops"] < 1.0
-                    }
+                    "total_power_W": total_power,
+                    "peak_temp_C": peak_temp,
+                    "sustained_tops": sustained_tops,
+                    "yield_factor": yield_factor,
+                    "primary_term": primary_term,
+                    "p_power": p_power, "p_temp": p_temp, "p_tops": p_tops, "p_yield": p_yield,
+                    "total_penalty": total_penalty
                 })
             except AttributeError:
                 pass
-        
+
         return composite_score if not apply_scaling else self.scaled(composite_score)
 
 
@@ -629,48 +634,162 @@ def optimize_photonic_accelerator(
     samples_per_acquisition: int = 20,
     target_power_W: float = 2.0,
     target_performance_tops: float = 3.11,
-    output_file: Optional[str] = None
+    output_file: Optional[str] = None,
+    use_fallback: bool = False
 ) -> Dict[str, Any]:
     """
     Run Level 4 system optimization for the photonic AI accelerator.
     
     Args:
-        iterations: Number of DANTE optimization iterations
+        iterations: Number of optimization iterations
         initial_samples: Number of initial random samples
-        samples_per_acquisition: Samples per DANTE iteration
+        samples_per_acquisition: Samples per iteration
         target_power_W: Target power budget (mobile constraint)
         target_performance_tops: Target sustained performance
         output_file: Optional output file for results
+        use_fallback: Force use of fallback optimizer instead of DANTE
         
     Returns:
         Optimization results with fab-ready accelerator configuration
     """
-    # Import DANTE components
-    from dante.neural_surrogate import AckleySurrogateModel
-    from dante.tree_exploration import TreeExploration
-    from dante.utils import generate_initial_samples
+    # Try to import DANTE components
+    dante_available = False
+    if not use_fallback:
+        try:
+            from dante.neural_surrogate import AckleySurrogateModel
+            from dante.tree_exploration import TreeExploration
+            from dante.utils import generate_initial_samples
+            dante_available = True
+        except (ImportError, Exception) as e:
+            print(f"Warning: DANTE not available ({e}), using fallback optimizer")
+            dante_available = False
+    
+    # Import fallback optimizer
+    from .simple_optimizer import gradient_free_optimization
     
     # Create system-level objective function
     obj_function = PhotonicAcceleratorOptimizer()
     obj_function.config.total_power_budget_W = target_power_W
     obj_function.config.target_sustained_tops = target_performance_tops
     
-    # Create surrogate model for system optimization
-    surrogate = AckleySurrogateModel(input_dims=obj_function.dims, epochs=200)
-    
     print(f"🚀 Starting Level 4 Photonic AI Accelerator Optimization...")
     print(f"Target: {target_performance_tops} TOPS at {target_power_W}W")
     print(f"Optimizing {obj_function.dims} system parameters...")
     
-    # Generate initial samples
-    input_x, input_y = generate_initial_samples(
-        obj_function, num_init_samples=initial_samples, apply_scaling=True
-    )
+    # Check if we should use DANTE or fallback
+    if not dante_available or use_fallback:
+        print("Using fallback gradient-free optimizer...")
+        
+        # Use fallback optimizer
+        input_x, input_y = gradient_free_optimization(
+            objective_func=lambda x: obj_function(x, apply_scaling=True),
+            bounds=(obj_function.lb, obj_function.ub),
+            n_iterations=iterations,
+            population_size=samples_per_acquisition
+        )
+        
+        # Find best solution
+        best_idx = np.argmax(input_y)
+        best_params = obj_function._extract_parameters(input_x[best_idx])
+        best_result = obj_function._run_system_simulation(best_params)
+        
+        print(f"\n✅ Level 4 Optimization Complete!")
+        print(f"Best Configuration:")
+        print(f"  Power: {best_result['total_power_W']:.2f}W (target: {target_power_W}W)")
+        print(f"  Performance: {best_result['sustained_tops']:.2f} TOPS (target: {target_performance_tops})")
+        print(f"  Efficiency: {best_result['power_efficiency_tops_per_w']:.2f} TOPS/W")
+        print(f"  Token Rate: {best_result['token_rate_per_s']:.1f} tok/s")
+        print(f"  Unit Cost: ${best_result['unit_cost_USD']:.0f}")
+        print(f"  Yield: {best_result['yield_factor']:.1%}")
+        
+        # Save results
+        results = {
+            "best_score": input_y[best_idx],
+            "best_parameters": best_params,
+            "best_metrics": best_result,
+            "optimization_history": [],
+            "all_evaluations": {"x": input_x.tolist(), "y": input_y.tolist()},
+            "total_evaluations": len(input_y),
+            "target_specs": {
+                "power_budget_W": target_power_W,
+                "performance_target_tops": target_performance_tops
+            },
+            "optimizer_used": "fallback_gradient_free"
+        }
+        
+        if output_file:
+            with open(output_file, 'w') as f:
+                json.dump(results, f, indent=2, default=str)
+            print(f"Results saved to {output_file}")
+        
+        return results
+    
+    # If we get here, try to use DANTE
+    print("Using DANTE optimizer...")
+    
+    # Create surrogate model for system optimization
+    surrogate = AckleySurrogateModel(input_dims=obj_function.dims, epochs=200)
+    
+    # Generate initial samples with dedupe to avoid constant/duplicate y
+    print("Generating initial samples with deduplication...")
+    input_x, input_y = [], []
+    seen = set()
+    tries = 0
+    
+    while len(input_x) < initial_samples and tries < 10000:
+        # Generate random sample within bounds
+        x = np.random.uniform(obj_function.lb, obj_function.ub)
+        key = tuple(np.round(x, 6))
+        
+        if key in seen:
+            tries += 1
+            continue
+            
+        seen.add(key)
+        val = obj_function(x, apply_scaling=True)
+        input_x.append(x)
+        input_y.append(val)
+        tries += 1
+    
+    input_x = np.array(input_x)
+    input_y = np.array(input_y, dtype=float)
+    
+    # Check for constant outputs (critical for surrogate learning)
+    if np.allclose(input_y, input_y[0], atol=1e-12):
+        raise ValueError(
+            f"Initial scores are constant ({input_y[0]:.6g}). Check penalty signs / objective."
+        )
+    
+    print(f"Initial samples: min={input_y.min():.4f}, max={input_y.max():.4f}, std={input_y.std():.4f}")
     
     best_solutions = []
     
+    # Stronger convergence: require actual improvement; random-restart on plateaus
+    best_so_far = -np.inf
+    patience = 15
+    stall = 0
+    
     # Main optimization loop
     for i in range(iterations):
+        # Check for plateau and restart if needed
+        current_best = float(np.max(input_y))
+        if current_best > best_so_far + 1e-3:  # Meaningful improvement
+            best_so_far = current_best
+            stall = 0
+        else:
+            stall += 1
+        
+        if stall >= patience:
+            print(f"Plateau detected at iteration {i+1} → adding random samples for diversity")
+            # Add some random samples to break out of local optima
+            for _ in range(samples_per_acquisition):
+                x_rand = np.random.uniform(obj_function.lb, obj_function.ub)
+                y_rand = obj_function(x_rand, apply_scaling=True)
+                # Ensure x_rand is 2D for concatenation
+                x_rand_2d = x_rand.reshape(1, -1)
+                input_x = np.concatenate((input_x, x_rand_2d), axis=0)
+                input_y = np.concatenate((input_y, [y_rand]))
+            stall = 0
         # Train surrogate model
         trained_surrogate = surrogate(input_x, input_y)
         
@@ -682,12 +801,83 @@ def optimize_photonic_accelerator(
         )
         
         # Perform tree exploration
-        new_x = tree_explorer.rollout(input_x, input_y, iteration=i)
-        new_y = np.array([obj_function(x, apply_scaling=True) for x in new_x])
-        
-        # Update dataset
-        input_x = np.concatenate((input_x, new_x), axis=0)
-        input_y = np.concatenate((input_y, new_y))
+        try:
+            # Ensure input arrays are properly shaped for DANTE
+            input_x_for_rollout = np.array(input_x, dtype=np.float64)
+            if input_x_for_rollout.ndim == 1:
+                input_x_for_rollout = input_x_for_rollout.reshape(-1, obj_function.dims)
+            
+            input_y_for_rollout = np.array(input_y, dtype=np.float64).flatten()
+            
+            new_x = tree_explorer.rollout(input_x_for_rollout, input_y_for_rollout, iteration=i)
+            
+            # Ensure new_x is properly shaped for concatenation
+            if isinstance(new_x, (list, tuple)):
+                new_x = np.array(new_x)
+            
+            # Force new_x to be 2D array with correct dimensions
+            new_x = np.atleast_2d(new_x)
+            
+            # Handle different array shapes
+            if new_x.shape[1] != obj_function.dims:
+                # Check if it's transposed or needs reshaping
+                if new_x.shape[0] == obj_function.dims and new_x.shape[1] != obj_function.dims:
+                    # Likely a single sample that needs transposing
+                    new_x = new_x.T
+                elif new_x.size == obj_function.dims:
+                    # Single sample that needs reshaping
+                    new_x = new_x.reshape(1, -1)
+                elif new_x.size % obj_function.dims == 0:
+                    # Multiple samples that need reshaping
+                    new_x = new_x.reshape(-1, obj_function.dims)
+                else:
+                    print(f"Warning: Cannot reshape new_x with shape {new_x.shape} to dims={obj_function.dims}")
+                    continue
+            
+            # Ensure we have at least one valid sample
+            if new_x.shape[0] == 0:
+                print(f"Warning: No new samples from tree exploration at iteration {i+1}")
+                continue
+            
+            # Evaluate new samples
+            new_y = np.array([obj_function(x, apply_scaling=True) for x in new_x], dtype=float).flatten()
+            
+            # Update dataset with proper shapes - ensure both arrays are 2D before vstack
+            if input_x.ndim == 1:
+                input_x = input_x.reshape(-1, obj_function.dims)
+            
+            # Ensure input_x is 2D (it should be from initial samples, but double-check)
+            input_x = np.atleast_2d(input_x)
+            if input_x.shape[1] != obj_function.dims and input_x.shape[0] == obj_function.dims:
+                input_x = input_x.T
+            
+            # Now both should be 2D with the same number of columns
+            try:
+                input_x = np.vstack([input_x, new_x])
+                input_y = np.concatenate([input_y, new_y])
+            except ValueError as e:
+                print(f"Error concatenating arrays at iteration {i+1}:")
+                print(f"  input_x shape: {input_x.shape}, new_x shape: {new_x.shape}")
+                print(f"  input_y shape: {input_y.shape}, new_y shape: {new_y.shape}")
+                print(f"  Error: {e}")
+                # Try to recover by reshaping
+                if input_x.ndim != new_x.ndim:
+                    input_x = np.atleast_2d(input_x)
+                    new_x = np.atleast_2d(new_x)
+                    input_x = np.vstack([input_x, new_x])
+                    input_y = np.concatenate([input_y, new_y])
+                else:
+                    raise
+            
+        except Exception as e:
+            print(f"Error in iteration {i+1}: {e}")
+            print(f"  input_x shape: {input_x.shape}")
+            print(f"  input_y shape: {input_y.shape}")
+            if 'new_x' in locals():
+                print(f"  new_x type: {type(new_x)}")
+                if hasattr(new_x, 'shape'):
+                    print(f"  new_x shape: {new_x.shape}")
+            raise
         
         # Track best solution
         best_idx = np.argmax(input_y)
@@ -707,10 +897,15 @@ def optimize_photonic_accelerator(
               f"TOPS={best_result['sustained_tops']:.2f}, "
               f"Cost=${best_result['unit_cost_USD']:.0f}")
         
-        # Early stopping for convergence
-        if i > 20 and len(set(input_y[-10:])) < 3:
-            print(f"Converged after {i+1} iterations")
-            break
+        # Stronger early stopping: require actual improvement
+        if i > 20:
+            recent_best = max(input_y[-10:])
+            overall_best = max(input_y)
+            improvement = overall_best - recent_best
+            
+            if improvement < 0.01:  # Require meaningful improvement
+                print(f"Converged: No improvement in last 10 iterations (best={overall_best:.4f})")
+                break
     
     # Final results analysis
     best_idx = np.argmax(input_y)

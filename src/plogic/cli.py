@@ -618,6 +618,7 @@ def accelerator(
     samples_per_iter: int = typer.Option(5, "--samples-per-iter", help="Number of samples per DANTE iteration"),
     target_power_W: float = typer.Option(2.0, "--target-power-W", help="Target power budget (mobile constraint)"),
     target_tops: float = typer.Option(3.11, "--target-tops", help="Target sustained TOPS performance"),
+    use_fallback: bool = typer.Option(False, "--use-fallback", help="Use fallback gradient-free optimizer instead of DANTE"),
     export_specs: bool = typer.Option(False, "--export-specs", help="Export fab-ready specifications"),
     export_gds: bool = typer.Option(False, "--export-gds", help="Export GDS layout parameters"),
     export_test: bool = typer.Option(False, "--export-test", help="Export test patterns"),
@@ -645,6 +646,7 @@ def accelerator(
             samples_per_acquisition=samples_per_iter,
             target_power_W=target_power_W,
             target_performance_tops=target_tops,
+            use_fallback=use_fallback,
             output_file=str(output) if output else None
         )
         
