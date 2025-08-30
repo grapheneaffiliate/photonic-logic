@@ -249,41 +249,41 @@ class PhotonicAcceleratorOptimizer(ObjectiveFunction):
         # [21-24]: Integration (package_type, test_time_min, calibration_points, compiler_config)
         
         self.lb = np.array([
-            # Ring geometry
-            32, 32, 5.0,
-            # Optical
-            1520, 10, 10,
-            # Thermal  
-            20, 1e-6, 5.0,
-            # Manufacturing
-            200, 0.6, 0,
-            # Architecture
-            10, 0.5, 256,
-            # Power
-            0.3, 0.1, 0.2,
-            # Performance
-            2.0, 30, 5.0,
-            # Integration
-            0, 1.0, 8, 0
+            # Ring geometry (realistic bounds)
+            32, 32, 8.0,
+            # Optical (realistic wavelength and power)
+            1530, 15, 12,
+            # Thermal (realistic heater power and timing)
+            30, 5e-6, 8.0,
+            # Manufacturing (realistic CD and yield)
+            210, 0.7, 0,
+            # Architecture (realistic lanes and clock)
+            12, 0.8, 256,
+            # Power (mobile constraints)
+            0.4, 0.15, 0.25,
+            # Performance (realistic targets)
+            2.5, 35, 8.0,
+            # Integration (realistic test and calibration)
+            0, 1.2, 12, 0
         ])
         
         self.ub = np.array([
             # Ring geometry
-            128, 128, 20.0,
+            96, 96, 15.0,
             # Optical
-            1580, 50, 25,
+            1570, 35, 20,
             # Thermal
-            100, 10e-6, 20.0,
+            80, 8e-6, 15.0,
             # Manufacturing
-            300, 0.95, 2,
+            280, 0.90, 2,
             # Architecture
-            25, 2.0, 1024,
-            # Power
-            0.8, 0.4, 0.6,
+            20, 1.5, 768,
+            # Power (strict mobile limits)
+            0.7, 0.25, 0.45,
             # Performance
-            5.0, 80, 20.0,
+            4.0, 65, 15.0,
             # Integration
-            2, 5.0, 32, 2
+            2, 2.5, 24, 2
         ])
         
         self.tracker = Tracker(self.name + str(self.dims))
@@ -562,15 +562,25 @@ class PhotonicAcceleratorOptimizer(ObjectiveFunction):
         params = self._extract_parameters(x)
         result = self._run_system_simulation(params)
         
-        # Multi-objective scoring for mobile AI accelerator
-        if not result["valid_config"]:
+        # STRICT MOBILE CONSTRAINTS - Hard limits for mobile deployment
+        total_power = result["total_power_W"]
+        peak_temp = result["peak_temp_C"]
+        
+        # Hard constraint violations return 0 (invalid configuration)
+        if total_power > self.config.total_power_budget_W:  # >2W invalid for mobile
+            composite_score = 0.0
+        elif peak_temp > 85.0:  # >85°C invalid for mobile
+            composite_score = 0.0
+        elif result["yield_factor"] < 0.5:  # <50% yield uneconomical
+            composite_score = 0.0
+        elif result["sustained_tops"] < 1.0:  # <1 TOPS insufficient performance
             composite_score = 0.0
         else:
-            # Primary objectives for mobile accelerator
+            # Valid configuration - compute composite score
             power_efficiency = result["power_efficiency_tops_per_w"]
             mobile_suitability = result["mobile_score"]
             manufacturing_feasibility = result["manufacturing_score"]
-            cost_effectiveness = 100 / max(result["cost_per_tops"], 1.0)  # Lower $/TOPS is better
+            cost_effectiveness = 100 / max(result["cost_per_tops"], 1.0)
             
             # Weighted composite score for mobile AI accelerator
             composite_score = (
@@ -592,7 +602,13 @@ class PhotonicAcceleratorOptimizer(ObjectiveFunction):
                     "yield_factor": result["yield_factor"],
                     "thermal_feasible": result["thermal_feasible"],
                     "mobile_score": result["mobile_score"],
-                    "mfg_score": result["manufacturing_score"]
+                    "mfg_score": result["manufacturing_score"],
+                    "constraint_violations": {
+                        "power_violation": total_power > self.config.total_power_budget_W,
+                        "thermal_violation": peak_temp > 85.0,
+                        "yield_violation": result["yield_factor"] < 0.5,
+                        "performance_violation": result["sustained_tops"] < 1.0
+                    }
                 })
             except AttributeError:
                 pass

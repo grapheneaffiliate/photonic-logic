@@ -503,8 +503,8 @@ def sweep(
 def optimize(
     objective: str = typer.Option("multi", "--objective", help="Optimization objective (energy, cascade, thermal, multi)"),
     iterations: int = typer.Option(100, "--iterations", help="Number of DANTE optimization iterations"),
-    initial_samples: int = typer.Option(30, "--initial-samples", help="Number of initial random samples"),
-    samples_per_iter: int = typer.Option(5, "--samples-per-iter", help="Number of samples per DANTE iteration"),
+    initial_samples: int = typer.Option(50, "--initial-samples", help="Number of initial random samples (5×dims recommended)"),
+    samples_per_iter: int = typer.Option(8, "--samples-per-iter", help="Number of samples per DANTE iteration"),
     energy_weight: float = typer.Option(0.4, "--energy-weight", help="Weight for energy objective (multi-objective only)"),
     cascade_weight: float = typer.Option(0.3, "--cascade-weight", help="Weight for cascade objective (multi-objective only)"),
     thermal_weight: float = typer.Option(0.2, "--thermal-weight", help="Weight for thermal objective (multi-objective only)"),

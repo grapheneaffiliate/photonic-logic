@@ -39,18 +39,19 @@ class PhotonicObjectiveBase(ObjectiveFunction):
             Simulation results dictionary
         """
         try:
-            # Extract parameters (customize based on specific objective)
+            # Extract parameters with strict bounds enforcement
             platform_idx = int(np.clip(x[0], 0, 2))
             platforms = ["AlGaAs", "Si", "SiN"]
             platform = platforms[platform_idx]
             
-            p_high_mw = float(x[1])
-            pulse_ns = float(x[2])
-            coupling_eta = float(x[3])
-            link_length_um = float(x[4])
-            fanout = int(np.clip(x[5], 1, 8))
-            split_loss_db = float(x[6])
-            stages = int(np.clip(x[7], 1, 50))
+            # Enforce minimum valid values to prevent invalid configurations
+            p_high_mw = max(0.05, float(x[1]))  # Minimum 0.05 mW
+            pulse_ns = max(0.05, float(x[2]))   # Minimum 0.05 ns
+            coupling_eta = np.clip(float(x[3]), 0.7, 0.99)  # Realistic coupling range
+            link_length_um = max(20.0, float(x[4]))  # Minimum 20 μm
+            fanout = max(1, int(np.clip(x[5], 1, 8)))  # Force integer, minimum 1
+            split_loss_db = max(0.2, float(x[6]))  # Minimum 0.2 dB
+            stages = max(1, int(np.clip(x[7], 1, 50)))  # Force integer, minimum 1
             
             # Load platform configuration
             db = PlatformDB()
@@ -119,8 +120,9 @@ class PhotonicEnergyOptimizer(PhotonicObjectiveBase):
     def __post_init__(self):
         # Parameter bounds: [platform_idx, P_high_mW, pulse_ns, coupling_eta, 
         #                   link_length_um, fanout, split_loss_db, stages]
-        self.lb = np.array([0, 0.01, 0.05, 0.7, 5,   1, 0.1, 1])
-        self.ub = np.array([2, 5.0,  2.0,  0.99, 200, 8, 2.0, 20])
+        # Fixed bounds to prevent invalid configurations (no zeros)
+        self.lb = np.array([0, 0.05, 0.05, 0.7, 20,  1, 0.2, 1])  # No zero pulse/stages
+        self.ub = np.array([2, 5.0,  5.0,  0.99, 200, 8, 2.0, 20])
         self.tracker = Tracker(self.name + str(self.dims))
     
     def scaled(self, y: float) -> float:
