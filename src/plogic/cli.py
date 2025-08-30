@@ -20,6 +20,7 @@ from .materials.hybrid import HybridPlatform
 from .materials.platforms import PlatformDB
 from .utils.switching import sigmoid
 from .optimization.photonic_objectives import run_photonic_optimization, create_photonic_optimizer
+from .optimization.accelerator_system import optimize_photonic_accelerator, generate_fab_ready_specs, export_gds_parameters
 
 # Keep help string consistent with smoke test expectations
 app = typer.Typer(
@@ -584,6 +585,102 @@ def optimize(
         typer.echo(f"Error details: {e}")
     except Exception as e:
         typer.echo(f"❌ Optimization failed: {e}")
+        if verbose:
+            import traceback
+            typer.echo(traceback.format_exc())
+
+
+@app.command("accelerator")
+def accelerator(
+    iterations: int = typer.Option(50, "--iterations", help="Number of DANTE optimization iterations"),
+    initial_samples: int = typer.Option(20, "--initial-samples", help="Number of initial random samples"),
+    samples_per_iter: int = typer.Option(5, "--samples-per-iter", help="Number of samples per DANTE iteration"),
+    target_power_W: float = typer.Option(2.0, "--target-power-W", help="Target power budget (mobile constraint)"),
+    target_tops: float = typer.Option(3.11, "--target-tops", help="Target sustained TOPS performance"),
+    export_specs: bool = typer.Option(False, "--export-specs", help="Export fab-ready specifications"),
+    export_gds: bool = typer.Option(False, "--export-gds", help="Export GDS layout parameters"),
+    export_test: bool = typer.Option(False, "--export-test", help="Export test patterns"),
+    export_compiler: bool = typer.Option(False, "--export-compiler", help="Export compiler configuration"),
+    output: Optional[Path] = typer.Option(None, "--output", help="Output file for optimization results"),
+    verbose: bool = typer.Option(False, "--verbose", help="Verbose optimization output"),
+) -> None:
+    """
+    Run Level 4 system optimization for production-ready photonic AI accelerator.
+    
+    Optimizes 4000+ ring arrays with manufacturing constraints, thermal co-simulation,
+    yield modeling, and fab-ready specifications. Targets mobile deployment with
+    <2W power budget and >3 TOPS sustained performance.
+    """
+    try:
+        typer.echo(f"🚀 Starting Level 4 Photonic AI Accelerator Optimization...")
+        typer.echo(f"Target: {target_tops} TOPS at {target_power_W}W (mobile constraints)")
+        typer.echo(f"System: 4000+ rings, thermal co-sim, manufacturing constraints")
+        typer.echo(f"Iterations: {iterations}, Initial samples: {initial_samples}")
+        
+        # Run Level 4 system optimization
+        results = optimize_photonic_accelerator(
+            iterations=iterations,
+            initial_samples=initial_samples,
+            samples_per_acquisition=samples_per_iter,
+            target_power_W=target_power_W,
+            target_performance_tops=target_tops,
+            output_file=str(output) if output else None
+        )
+        
+        # Display system-level results
+        best_metrics = results["best_metrics"]
+        typer.echo(f"\n🎯 Level 4 Accelerator Configuration:")
+        typer.echo(f"Power: {best_metrics['total_power_W']:.2f}W (target: {target_power_W}W)")
+        typer.echo(f"Performance: {best_metrics['sustained_tops']:.2f} TOPS (target: {target_tops})")
+        typer.echo(f"Efficiency: {best_metrics['power_efficiency_tops_per_w']:.2f} TOPS/W")
+        typer.echo(f"Token Rate: {best_metrics['token_rate_per_s']:.1f} tok/s (7B model)")
+        typer.echo(f"Unit Cost: ${best_metrics['unit_cost_USD']:.0f} (10K volume)")
+        typer.echo(f"Yield: {best_metrics['yield_factor']:.1%}")
+        typer.echo(f"Thermal: {'✅ Feasible' if best_metrics['thermal_feasible'] else '❌ Infeasible'}")
+        
+        # Export specifications if requested
+        if export_specs or export_gds or export_test or export_compiler:
+            typer.echo(f"\n📋 Generating fab-ready specifications...")
+            fab_specs = generate_fab_ready_specs(results)
+            
+            if export_specs:
+                specs_file = "accelerator_specifications.json"
+                with open(specs_file, 'w') as f:
+                    json.dump(fab_specs, f, indent=2, default=str)
+                typer.echo(f"📋 Specifications exported to {specs_file}")
+            
+            if export_gds:
+                export_gds_parameters(fab_specs, "gds_export")
+            
+            if export_test:
+                from .optimization.accelerator_system import generate_test_patterns
+                generate_test_patterns(fab_specs, "test_patterns")
+            
+            if export_compiler:
+                from .optimization.accelerator_system import generate_compiler_config
+                generate_compiler_config(fab_specs, "compiler_config")
+        
+        # Show optimization summary
+        if verbose:
+            typer.echo(f"\n📊 Optimization Summary:")
+            typer.echo(f"Total evaluations: {results['total_evaluations']}")
+            typer.echo(f"Best score: {results['best_score']:.4f}")
+            
+            # Show parameter breakdown
+            best_params = results["best_parameters"]
+            typer.echo(f"\n🔧 System Parameters:")
+            typer.echo(f"Ring array: {best_params['array_rows']}×{best_params['array_cols']}")
+            typer.echo(f"Wavelength: {best_params['wavelength_nm']:.0f} nm")
+            typer.echo(f"Heater power: {best_params['heater_power_uW']:.1f} µW/ring")
+            typer.echo(f"Computational lanes: {best_params['num_lanes']}")
+            typer.echo(f"Clock frequency: {best_params['clock_freq_GHz']:.2f} GHz")
+        
+    except ImportError as e:
+        typer.echo(f"❌ Error: DANTE not properly installed. Please install DANTE first:")
+        typer.echo(f"pip install git+https://github.com/Bop2000/DANTE.git")
+        typer.echo(f"Error details: {e}")
+    except Exception as e:
+        typer.echo(f"❌ Level 4 optimization failed: {e}")
         if verbose:
             import traceback
             typer.echo(traceback.format_exc())
