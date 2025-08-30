@@ -1,0 +1,21 @@
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = false
+	logallrefupdates = true
+	symlinks = false
+	ignorecase = true
+[remote "origin"]
+	url = https://github.com/grapheneaffiliate/photonic-logic.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "main"]
+	remote = origin
+	merge = refs/heads/main
+	vscode-merge-base = origin/main
+[branch "fix/physics-power-scaling-final"]
+	remote = origin
+	merge = refs/heads/fix/physics-power-scaling-final
+	vscode-merge-base = origin/fix/physics-power-scaling-final
+[branch "readme-update"]
+	remote = origin
+	merge = refs/heads/readme-update

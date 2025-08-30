@@ -19,8 +19,29 @@ from .controller import (
 from .materials.hybrid import HybridPlatform
 from .materials.platforms import PlatformDB
 from .utils.switching import sigmoid
-from .optimization.photonic_objectives import run_photonic_optimization, create_photonic_optimizer
-from .optimization.accelerator_system import optimize_photonic_accelerator, generate_fab_ready_specs, export_gds_parameters
+# Import optimization functions with fallback for CI environments
+try:
+    from .optimization.photonic_objectives import run_photonic_optimization, create_photonic_optimizer
+    from .optimization.accelerator_system import optimize_photonic_accelerator, generate_fab_ready_specs, export_gds_parameters
+    OPTIMIZATION_AVAILABLE = True
+except ImportError:
+    OPTIMIZATION_AVAILABLE = False
+    
+    # Fallback functions for when DANTE is not available
+    def run_photonic_optimization(*args, **kwargs):
+        raise ImportError("DANTE optimization not available. Please install DANTE: pip install git+https://github.com/Bop2000/DANTE.git")
+    
+    def create_photonic_optimizer(*args, **kwargs):
+        raise ImportError("DANTE optimization not available. Please install DANTE: pip install git+https://github.com/Bop2000/DANTE.git")
+    
+    def optimize_photonic_accelerator(*args, **kwargs):
+        raise ImportError("DANTE optimization not available. Please install DANTE: pip install git+https://github.com/Bop2000/DANTE.git")
+    
+    def generate_fab_ready_specs(*args, **kwargs):
+        raise ImportError("DANTE optimization not available. Please install DANTE: pip install git+https://github.com/Bop2000/DANTE.git")
+    
+    def export_gds_parameters(*args, **kwargs):
+        raise ImportError("DANTE optimization not available. Please install DANTE: pip install git+https://github.com/Bop2000/DANTE.git")
 
 # Keep help string consistent with smoke test expectations
 app = typer.Typer(

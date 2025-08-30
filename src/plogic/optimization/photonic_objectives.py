@@ -14,10 +14,44 @@ import numpy as np
 import subprocess
 import json
 
-# Add DANTE to path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'DANTE'))
-from dante.obj_functions import ObjectiveFunction
-from dante.utils import Tracker
+# Add DANTE to path for imports (with fallback for CI environments)
+try:
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'DANTE'))
+    from dante.obj_functions import ObjectiveFunction
+    from dante.utils import Tracker
+    DANTE_AVAILABLE = True
+except ImportError:
+    # Fallback for environments without DANTE
+    DANTE_AVAILABLE = False
+    
+    # Create minimal fallback classes
+    class ObjectiveFunction(ABC):
+        """Fallback ObjectiveFunction for when DANTE is not available."""
+        def __init__(self):
+            self.dims = 8
+            self.turn = 0.01
+            self.name = "fallback"
+            self.lb = None
+            self.ub = None
+        
+        def _preprocess(self, x):
+            return np.array(x)
+        
+        @abstractmethod
+        def __call__(self, x, apply_scaling=True, track=True):
+            pass
+    
+    class Tracker:
+        """Fallback Tracker for when DANTE is not available."""
+        def __init__(self, name):
+            self.name = name
+            self.data = []
+        
+        def track(self, value, x):
+            self.data.append({"value": value, "x": x})
+        
+        def track_metadata(self, metadata):
+            pass
 
 # Import photonic logic components
 from ..controller import ExperimentController, PhotonicMolecule

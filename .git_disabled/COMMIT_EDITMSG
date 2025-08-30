@@ -1,0 +1,7 @@
+fix: Resolve Q factor attribute error in show-resolved command
+
+- Fix AttributeError: 'PhotonicMolecule' object has no attribute 'Q'
+- Calculate Q factor properly as omega0 / kappa_A
+- Fix Q factor override to adjust kappa_A instead of setting dev.Q
+- All CLI commands now work correctly including show-resolved option
+- Enhanced cascade command with platform, fanout, hybrid options fully functional

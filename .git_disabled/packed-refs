@@ -1,0 +1,10 @@
+# pack-refs with: peeled fully-peeled sorted 
+dd34db9a4b8460de8df8fa4a226565d2ec567b50 refs/remotes/origin/feat/cli-tests-ci-v2
+6f94c5187b91889396449c2462a6e18f12e95593 refs/remotes/origin/feat/typer-cli-and-tests
+05f618f00bf90c8c3f3802e8a3fa26f6d9924a3c refs/remotes/origin/feature/p0-p1-soft-xpm
+a442b7980b44babd97d52221c41f2609eea76235 refs/remotes/origin/fix/ci-and-dev-tooling
+7f67e2a17211ec27349e4fceac301ee40c012bbf refs/remotes/origin/fix/physics-power-scaling
+bfadac973b23c6ac44dc3e4bb58b2df021cef6f4 refs/remotes/origin/fix/physics-power-scaling-final
+72875118ee4d4185170f8651b491c0267cfc0625 refs/remotes/origin/gh-pages
+094bdf2073f77078882ec34dcd2cf31bd0fac488 refs/remotes/origin/main
+67a0739d43e4dd53158a0da13d6c96b79d16c347 refs/remotes/origin/readme-update
